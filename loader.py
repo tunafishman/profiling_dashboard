@@ -4,6 +4,7 @@ from collections import defaultdict
 from pprint import pprint
 from sqlalchemy import create_engine
 
+import json
 import utils
 
 class RedShiftLoader():
@@ -31,6 +32,8 @@ class RedShiftLoader():
     def queryScrub(self, details):
         if 'cid' not in details:
             exit('specify cid')
+        else:
+            self.cid = details['cid']
 
         scrubbed = {
             'cid': details['cid'],
@@ -72,7 +75,7 @@ class RedShiftLoader():
                 #create new class entries
                 class_info = {
                                  'medians': {
-                                     'fbu': row['fbu'],
+                                     'fbu': row['fbu'], 
                                      'dcu': row['dcu']
                                  },
                                  'sizes': {
@@ -83,7 +86,7 @@ class RedShiftLoader():
                                  'count': row['bin_count']
                              }
                 if tpclass in ['acc', 'byp']:
-                    class_info.update({'bins': { row['bin']: row['bin_count'] }})
+                    class_info.update({'bins': { row['bin']: int(row['bin_count']) }}) #cast to int so it can be json serialized later
 
                 hash_grouped[hash_string]['metrics'][row['class']] = class_info
 
@@ -127,8 +130,6 @@ class RedShiftLoader():
                 comparable['comparability'] = False
                 comparable['fail_reason'] = 'acc/byp samples'
 
-            if comparable['comparability']:
-                print comparable
             comparables.append(comparable)
         return comparables
 
@@ -138,6 +139,7 @@ class RedShiftLoader():
         goods, bads = [], []
         for comparable in comparable_list:
             reduced = {
+                'cid': self.cid,
                 'network': comparable['id']['network'],
                 'geo': comparable['id']['geo'],
                 'url_domain': comparable['id']['url_domain'],
@@ -151,21 +153,20 @@ class RedShiftLoader():
                 }
             
             byp_metrics, acc_metrics = comparable['metrics'].get('byp', {}), comparable['metrics'].get('acc', {})
-            metrics = {
-                'bins': {
-                    'acc': acc_metrics.get('bins', {}),
-                    'byp': byp_metrics.get('bins', {})
+            bins = {
+                'acc': acc_metrics.get('bins', {}),
+                'byp': byp_metrics.get('bins', {})
+                }
+            percentiles = {
+                'acc': {
+                    'dcu_median': float(acc_metrics.get('medians', {}).get('dcu', 0))
                     },
-                'percentiles': {
-                    'acc': {
-                        'dcu_median': acc_metrics.get('medians', {}).get('dcu', 0)
-                        },
-                    'byp': {
-                        'dcu_median': byp_metrics.get('medians', {}).get('dcu', 0)
-                        }
+                'byp': {
+                    'dcu_median': float(byp_metrics.get('medians', {}).get('dcu', 0))
                     }
-            }
-            reduced.update({'metrics': metrics})
+                }
+
+            reduced.update({'percentiles': json.dumps(percentiles), 'bins': json.dumps(bins)})
 
             if comparable['comparability']:
                 gain = comparable['metrics']['byp']['medians']['dcu'] / comparable['metrics']['acc']['medians']['dcu'] - 1
@@ -175,34 +176,13 @@ class RedShiftLoader():
                 bads.append(comparable)
             reduced.update({'gain': gain})
             reduced_comparables.append(reduced)
-        out = "{}: {}"
-        print out.format('goods', len(goods)), out.format('bads', len(bads))
         return reduced_comparables
 
     def LoadToProduction(self):
-        print 'this many', len(self.comparables)
-        urls = set()
-
-        num_good, num_bad = 0, 0
-        reasons = defaultdict(lambda : defaultdict(int))
         for entry in self.comparables: 
-            urls.add(entry['url_domain'])
-            #print entry
-            #rr = models.ReducedRow(**entry)
-            if entry['fail_reason']:
-                reasons[entry['fail_reason']]['count'] += 1
-                reasons[entry['fail_reason']]['sample'] += entry['num_total_records']
-                num_bad += entry['num_total_records']
-            else:
-                num_good += entry['num_total_records']
-   #db.session.add(rr)
-        #db.session.commit()
-        print reasons
-        print 'good total', num_good, 'bad total', num_bad
-        if self.to_add:
-            print 'to_add', self.to_add
-                
-        print 'urls', urls
+            rr = models.ReducedRow(**entry)
+            db.session.add(rr)
+        db.session.commit()
 
     def Test(self):
         if not self.cursor:
@@ -214,10 +194,12 @@ if __name__ == "__main__":
     import sys
     
     cid = sys.argv[1]
+    start = str(sys.argv[2])
+    end = str(sys.argv[3])
 
     tplog = RedShiftLoader(credentials.redshift_endpoint, credentials.redshift_dbname,
                            credentials.redshift_port, credentials.redshift_user, credentials.redshift_pass)
-    tplog.Query({'cid': cid, 'start_date': '2015-11-06', 'end_date': '2015-11-09', 'limit': 50000})
+    tplog.Query({'cid': cid, 'start_date': start, 'end_date': end, 'limit': 500000})
     tplog.ReduceResults()
     tplog.LoadToProduction()
     #tplog.Test()
