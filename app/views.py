@@ -1,7 +1,8 @@
-from app import app, models
-from collections import defaultdict
-from flask import jsonify
+from app import app, models, utils
+from collections import Counter, defaultdict
+from flask import jsonify, request
 
+import json
 import time
 
 @app.route('/')
@@ -36,7 +37,6 @@ def gains(cid, breakout):
     results = models.ReducedRow.query.filter_by(cid=cid).filter_by(comparability="True").all()
     temp = defaultdict(lambda: defaultdict(float))
     
-    print len(results), case
     for entry in results:
         if case == 0:
             subset = entry.network
@@ -64,3 +64,26 @@ def gains(cid, breakout):
     print totaltime
     return jsonify(to_return)
 
+@app.route('/api/v1/<cid>/histogram/')
+def histogram(cid):
+    filters = utils.parseSelector(request.args.get('selector', ''))
+    comparable_query = request.args.get('comparable', False)
+    results = models.ReducedRow.query.filter_by(cid=cid)
+    if filters:
+        results.filter_by(filters)
+
+    results_agg = defaultdict(Counter)
+    for comp in results.all():
+        temp = {}
+        comp_bins = json.loads(comp.bins)
+        temp['byp'] = Counter(comp_bins.get('byp', {}))
+        if comparable_query:
+            #aggregate acc and byp where appropriate
+            if comp.comparability:
+                temp['acc'] = Counter(comp_bins.get('acc', {}))
+        #else aggregate byp only
+        for tpclass in temp:
+            results_agg[tpclass] += temp[tpclass]
+
+    print 'results agg', results_agg
+    return jsonify(results_agg)

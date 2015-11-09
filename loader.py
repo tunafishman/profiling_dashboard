@@ -1,11 +1,10 @@
 #!flask/bin/python
-from app import db, models
+from app import db, models, utils
 from collections import defaultdict
 from pprint import pprint
 from sqlalchemy import create_engine
 
 import json
-import utils
 
 class RedShiftLoader():
 
@@ -183,6 +182,9 @@ class RedShiftLoader():
             rr = models.ReducedRow(**entry)
             db.session.add(rr)
         db.session.commit()
+
+        if self.to_add:
+            print self.to_add
 
     def Test(self):
         if not self.cursor:

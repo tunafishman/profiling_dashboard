@@ -199,6 +199,7 @@ content_types = {
     'image/png': 'image',
     'image/webp': 'image',
     'image/svg+xml': 'image',
+    'Image': 'image',
     'multipart': 'multipart',
     'text': 'text',
     'text/css': 'text', 
@@ -214,3 +215,6 @@ def reducedContentType(content_type):
     else:
         ctype = content_types.get(content_type.split('/')[0], "oops") #try this for a while and see what happens
     return ctype
+
+def parseSelector(selector_string):
+    return ''
