@@ -217,4 +217,5 @@ def reducedContentType(content_type):
     return ctype
 
 def parseSelector(selector_string):
+    print selector_string
     return ''

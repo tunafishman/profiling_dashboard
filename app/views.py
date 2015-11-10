@@ -51,6 +51,7 @@ def gains(cid, breakout):
 
         temp[subset]['boltzmann_factor'] += float(entry.gain) * float(entry.num_comparable_records)
         temp[subset]['total'] += float(entry.num_comparable_records)
+
     total = sum([temp[subset]['total'] for subset in temp.keys()])  
     temp['total'] = total 
 
@@ -85,5 +86,4 @@ def histogram(cid):
         for tpclass in temp:
             results_agg[tpclass] += temp[tpclass]
 
-    print 'results agg', results_agg
     return jsonify(results_agg)
