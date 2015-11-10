@@ -36,7 +36,7 @@ def gains(cid, breakout):
 
     results = models.ReducedRow.query.filter_by(cid=cid).filter_by(comparability="True").all()
     temp = defaultdict(lambda: defaultdict(float))
-    
+        
     for entry in results:
         if case == 0:
             subset = entry.network
@@ -47,19 +47,21 @@ def gains(cid, breakout):
         elif case == 3:
             subset = entry.size
         elif case == 4:
-            subset = entry.content_type
+            subset = entry.content_type   
 
         temp[subset]['boltzmann_factor'] += float(entry.gain) * float(entry.num_comparable_records)
         temp[subset]['total'] += float(entry.num_comparable_records)
 
     total = sum([temp[subset]['total'] for subset in temp.keys()])  
+    print 'total records considered: {}'.format(total)
     temp['total'] = total 
 
     to_return = {'results': {}}
-    for key in filter(lambda x: x not in ['total'], temp.keys()):
-        to_return['results'][key] = {
-            'gain': temp[key]['boltzmann_factor'] / temp[key]['total'],
-            'portion': temp[key]['total'] / temp['total']
+    for tpslice in filter(lambda x: x not in ['total'], temp.keys()):
+        print tpslice, temp[tpslice]
+        to_return['results'][tpslice] = {
+            'gain': temp[tpslice]['boltzmann_factor'] / temp[tpslice]['total'],
+            'portion': temp[tpslice]['total'] / temp['total']
             }
     totaltime = time.time() - starttime
     print totaltime

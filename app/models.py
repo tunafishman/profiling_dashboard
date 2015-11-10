@@ -8,7 +8,7 @@ class ReducedRow(db.Model):
     geo = db.Column(db.String(20))
     url_domain = db.Column(db.String(200))
     size = db.Column(db.String(10))
-    content_type = db.Column(db.String(20))
+    content_type = db.Column(db.String(70))
     comparability = db.Column(db.Boolean, default=False)
     gain = db.Column(db.Numeric)
     num_total_records = db.Column(db.Integer)

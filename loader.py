@@ -2,7 +2,7 @@
 from app import db, models, utils
 from collections import defaultdict
 from pprint import pprint
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 import json
 
@@ -12,7 +12,7 @@ class RedShiftLoader():
         self.cursor = None
         self.engine_string = "postgresql+psycopg2://%s:%s@%s:%d/%s" % (
             user, password, endpoint, port, dbname)
-        self.SIGNIFICANT_RECORD_COUNT = 50
+        self.SIGNIFICANT_RECORD_COUNT = 200
         self.SIGNIFICANT_PERCENTILE_ERROR = .15
 
     def Connect(self):
@@ -25,7 +25,7 @@ class RedShiftLoader():
         
         formatter = self.queryScrub(details) 
         rs_query = utils.redshift_query.format(**formatter)
-        self.rows = self.cursor.execute(rs_query).fetchall()
+        self.rows = self.cursor.execute(text(rs_query)).fetchall()
         print 'query complete', "%i rows returned" % len(self.rows)
 
     def queryScrub(self, details):
@@ -44,15 +44,10 @@ class RedShiftLoader():
 
     def ReduceResults(self):
         hash_grouped = {}
-        id_keys = ['network', 'geo', 'url_domain', 'size'] #treat content_type separately
-        self.to_add = set()
+        id_keys = ['network', 'geo', 'url_domain', 'size', 'content_type'] #treat content_type separately
 
         for row in self.rows:
             hash_string = "&".join(["=".join([key, row[key]]) for key in id_keys])
-            reduced_content = utils.reducedContentType(row['content_type']) 
-            if reduced_content == "oops":
-                self.to_add.add(row['content_type'])
-            hash_string += '&content_type={}'.format(reduced_content)
             tpclass = row['class']
             # hash_info = hash_grouped.get(hash_string, {})
             exists = hash_grouped.get(hash_string, False)
@@ -60,7 +55,6 @@ class RedShiftLoader():
                 hash_info = {'id':{}, 'metrics':{}, 'count': 0}
                 for key in id_keys:
                     hash_info['id'].update({key: row[key]})
-                hash_info['id'].update({'content_type': reduced_content})
                 hash_grouped[hash_string] = hash_info
 
             hash_grouped[hash_string]['count'] += row['bin_count']
@@ -88,6 +82,8 @@ class RedShiftLoader():
                     class_info.update({'bins': { row['bin']: int(row['bin_count']) }}) #cast to int so it can be json serialized later
 
                 hash_grouped[hash_string]['metrics'][row['class']] = class_info
+
+        print 'sum total of hashes', sum([hash_grouped[subset]['count'] for subset in hash_grouped])
 
         self.comparables = self.FinalForm(self.SignificantChecks(hash_grouped))
 
@@ -183,13 +179,10 @@ class RedShiftLoader():
             db.session.add(rr)
         db.session.commit()
 
-        if self.to_add:
-            print self.to_add
-
     def Test(self):
         if not self.cursor:
             self.Connect()
-        self.Query('huh')
+        self.Query({'cid':3521, 'limit':2, 'start_date':'2015-11-08', 'end_date':'2015-11-09'})
 
 if __name__ == "__main__":
     import credentials
@@ -205,5 +198,5 @@ if __name__ == "__main__":
     tplog.ReduceResults()
     tplog.LoadToProduction()
     #tplog.Test()
-    #for row in tplog.rows[:20]:
-    #    print row['bin']
+    #for row in tplog.rows[:100]:
+    #    print row
