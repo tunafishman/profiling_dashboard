@@ -1,22 +1,26 @@
 
 redshift_query = \
-"""select   partition1 as network, 
-         partition2 as geo, 
-         partition3 as url_domain, 
-         partition4 as content_type, 
-         partition5 as size, 
-         partition6 as bin, 
-         count(*) AS bin_count, 
-         class, 
-         max(median_fbu)   AS fbu, 
-         max(median_dcu)   AS dcu, 
-         max(extra0)       AS size_25, 
-         max(extra1)       AS size_50, 
+"""select   partition1 as network,
+         partition2 as geo,
+         partition3 as url_domain,
+         partition4 as content_type,
+         partition5 as size,
+         partition6 as bin,
+         count(*) AS bin_count,
+         class,
+         max(perc25_fbu)   AS perc25_fbu,
+         max(perc25_dcu)   AS perc25_dcu,
+         max(perc50_fbu)   AS perc50_fbu,
+         max(perc50_dcu)   AS perc50_dcu,
+         max(perc75_fbu)   AS perc75_fbu,
+         max(perc75_dcu)   AS perc75_dcu,
+         max(extra0)       AS size_25,
+         max(extra1)       AS size_50,
          max(extra2)       AS size_75
-FROM ( 
-                  SELECT   network      AS partition1, 
-                           geo          AS partition2, 
-                           url_domain   AS partition3, 
+FROM (
+                  SELECT   network      AS partition1,
+                           geo          AS partition2,
+                           url_domain   AS partition3,
                            CASE
                                     WHEN content_type like '%mage%' THEN 'image'
                                     WHEN content_type like '%json%' THEN 'json'
@@ -34,15 +38,15 @@ FROM (
                                     WHEN content_type like 'text/%' THEN 'text'
                                     ELSE content_type
                            END AS partition4,
-                           CASE 
-                                    WHEN size < 10000 THEN 'Small' 
-                                    WHEN size < 30000 THEN 'Medium' 
-                                    WHEN size < 50000 THEN 'Medium+' 
-                                    WHEN size < 200000 THEN 'Large' 
-                                    ELSE 'X-Large' 
-                           END AS partition5, 
+                           CASE
+                                    WHEN size < 10000 THEN 'Small'
+                                    WHEN size < 30000 THEN 'Medium'
+                                    WHEN size < 50000 THEN 'Medium+'
+                                    WHEN size < 200000 THEN 'Large'
+                                    ELSE 'X-Large'
+                           END AS partition5,
                            50*(1+floor(dcu/50)) as bin,
-                           CASE                                     
+                           CASE
                                     WHEN dcu < 50 THEN '50'
                                     WHEN dcu < 100 THEN '100'
                                     WHEN dcu < 150 THEN '150'
@@ -123,66 +127,17 @@ FROM (
                                     WHEN dcu < 3900 THEN '3900'
                                     WHEN dcu < 3950 THEN '3950'
                                     WHEN dcu < 4000 THEN '4000'
-                                    WHEN dcu >= 4000 THEN '>4000' 
+                                    WHEN dcu >= 4000 THEN '>4000'
                            END AS partition6,
-                           class, 
-                           median(fbu) OVER (partition BY network, geo, url_domain, content_type,
-                           CASE 
-                                    WHEN size < 10000 THEN 'Small' 
-                                    WHEN size < 30000 THEN 'Medium' 
-                                    WHEN size < 50000 THEN 'Medium+' 
-                                    WHEN size < 200000 THEN 'Large' 
-                                    ELSE 'X-Large' 
-                           END, 
-                           CASE
-                                    WHEN content_type like '%mage%' THEN 'image'
-                                    WHEN content_type like '%json%' THEN 'json'
-                                    WHEN content_type like '%html%' THEN 'html'
-                                    WHEN content_type like '%css%' THEN 'css'
-                                    WHEN content_type like 'text/plain%' THEN 'text'
-                                    WHEN content_type like '%javascript%' THEN 'javascript'
-                                    WHEN content_type like 'video/%' THEN 'video'
-                                    WHEN content_type like 'audio/%' THEN 'audio'
-                                    WHEN content_type like '%xml%' THEN 'xml'
-                                    WHEN content_type like '%binary%' THEN 'Binary File'
-                                    WHEN content_type like '%octet%' THEN 'Binary File'
-                                    WHEN content_type like '%font%' THEN 'Font'
-                                    WHEN content_type like 'multipart%' THEN 'Multipart'
-                                    ELSE content_type
-                           END,
-                           class)  AS median_fbu, 
-                           median(dcu) OVER (partition BY network, geo, url_domain, content_type,
-                           CASE 
-                                    WHEN size < 10000 THEN 'Small' 
-                                    WHEN size < 30000 THEN 'Medium' 
-                                    WHEN size < 50000 THEN 'Medium+' 
-                                    WHEN size < 200000 THEN 'Large' 
-                                    ELSE 'X-Large' 
-                           END, 
-                           CASE
-                                    WHEN content_type like '%mage%' THEN 'image'
-                                    WHEN content_type like '%json%' THEN 'json'
-                                    WHEN content_type like '%html%' THEN 'html'
-                                    WHEN content_type like '%css%' THEN 'css'
-                                    WHEN content_type like 'text/plain%' THEN 'text'
-                                    WHEN content_type like '%javascript%' THEN 'javascript'
-                                    WHEN content_type like 'video/%' THEN 'video'
-                                    WHEN content_type like 'audio/%' THEN 'audio'
-                                    WHEN content_type like '%xml%' THEN 'xml'
-                                    WHEN content_type like '%binary%' THEN 'Binary File'
-                                    WHEN content_type like '%octet%' THEN 'Binary File'
-                                    WHEN content_type like '%font%' THEN 'Font'
-                                    WHEN content_type like 'multipart%' THEN 'Multipart'
-                                    ELSE content_type
-                           END,
-                           class) AS median_dcu, 
+                           class,
+
                            percentile_cont(0.25) within GROUP (ORDER BY size) OVER (partition BY network, geo, url_domain, content_type,
-                           CASE 
-                                    WHEN size < 10000 THEN 'Small' 
-                                    WHEN size < 30000 THEN 'Medium' 
-                                    WHEN size < 50000 THEN 'Medium+' 
-                                    WHEN size < 200000 THEN 'Large' 
-                                    ELSE 'X-Large' 
+                           CASE
+                                    WHEN size < 10000 THEN 'Small'
+                                    WHEN size < 30000 THEN 'Medium'
+                                    WHEN size < 50000 THEN 'Medium+'
+                                    WHEN size < 200000 THEN 'Large'
+                                    ELSE 'X-Large'
                            END,
                            CASE
                                     WHEN content_type like '%mage%' THEN 'image'
@@ -200,15 +155,15 @@ FROM (
                                     WHEN content_type like 'multipart%' THEN 'Multipart'
                                     ELSE content_type
                            END,
-                           class) AS extra0, 
+                           class) AS extra0,
                            median(size) OVER (partition BY network, geo, url_domain, content_type,
-                           CASE 
-                                    WHEN size < 10000 THEN 'Small' 
-                                    WHEN size < 30000 THEN 'Medium' 
-                                    WHEN size < 50000 THEN 'Medium+' 
-                                    WHEN size < 200000 THEN 'Large' 
-                                    ELSE 'X-Large' 
-                           END, 
+                           CASE
+                                    WHEN size < 10000 THEN 'Small'
+                                    WHEN size < 30000 THEN 'Medium'
+                                    WHEN size < 50000 THEN 'Medium+'
+                                    WHEN size < 200000 THEN 'Large'
+                                    ELSE 'X-Large'
+                           END,
                            CASE
                                     WHEN content_type like '%mage%' THEN 'image'
                                     WHEN content_type like '%json%' THEN 'json'
@@ -225,14 +180,14 @@ FROM (
                                     WHEN content_type like 'multipart%' THEN 'Multipart'
                                     ELSE content_type
                            END,
-                           class) AS extra1, 
+                           class) AS extra1,
                            percentile_cont(0.75) within GROUP (ORDER BY size) OVER (partition BY network, geo, url_domain, content_type,
-                           CASE 
-                                    WHEN size < 10000 THEN 'Small' 
-                                    WHEN size < 30000 THEN 'Medium' 
-                                    WHEN size < 50000 THEN 'Medium+' 
-                                    WHEN size < 200000 THEN 'Large' 
-                                    ELSE 'X-Large' 
+                           CASE
+                                    WHEN size < 10000 THEN 'Small'
+                                    WHEN size < 30000 THEN 'Medium'
+                                    WHEN size < 50000 THEN 'Medium+'
+                                    WHEN size < 200000 THEN 'Large'
+                                    ELSE 'X-Large'
                            END,
                            CASE
                                     WHEN content_type like '%mage%' THEN 'image'
@@ -251,28 +206,177 @@ FROM (
                                     ELSE content_type
                            END,
                            class) AS extra2,
-                           content_type AS partition7
+                           percentile_cont(0.25) within GROUP (ORDER BY fbu) OVER (partition BY network, geo, url_domain, content_type,
+                           CASE
+                                    WHEN size < 10000 THEN 'Small'
+                                    WHEN size < 30000 THEN 'Medium'
+                                    WHEN size < 50000 THEN 'Medium+'
+                                    WHEN size < 200000 THEN 'Large'
+                                    ELSE 'X-Large'
+                           END,
+                           CASE
+                                    WHEN content_type like '%mage%' THEN 'image'
+                                    WHEN content_type like '%json%' THEN 'json'
+                                    WHEN content_type like '%html%' THEN 'html'
+                                    WHEN content_type like '%css%' THEN 'css'
+                                    WHEN content_type like 'text/plain%' THEN 'text'
+                                    WHEN content_type like '%javascript%' THEN 'javascript'
+                                    WHEN content_type like 'video/%' THEN 'video'
+                                    WHEN content_type like 'audio/%' THEN 'audio'
+                                    WHEN content_type like '%xml%' THEN 'xml'
+                                    WHEN content_type like '%binary%' THEN 'Binary File'
+                                    WHEN content_type like '%octet%' THEN 'Binary File'
+                                    WHEN content_type like '%font%' THEN 'Font'
+                                    WHEN content_type like 'multipart%' THEN 'Multipart'
+                                    ELSE content_type
+                           END,
+                           class) AS perc25_fbu,
+                           percentile_cont(0.25) within GROUP (ORDER BY dcu) OVER (partition BY network, geo, url_domain, content_type,
+                           CASE
+                                    WHEN size < 10000 THEN 'Small'
+                                    WHEN size < 30000 THEN 'Medium'
+                                    WHEN size < 50000 THEN 'Medium+'
+                                    WHEN size < 200000 THEN 'Large'
+                                    ELSE 'X-Large'
+                           END,
+                           CASE
+                                    WHEN content_type like '%mage%' THEN 'image'
+                                    WHEN content_type like '%json%' THEN 'json'
+                                    WHEN content_type like '%html%' THEN 'html'
+                                    WHEN content_type like '%css%' THEN 'css'
+                                    WHEN content_type like 'text/plain%' THEN 'text'
+                                    WHEN content_type like '%javascript%' THEN 'javascript'
+                                    WHEN content_type like 'video/%' THEN 'video'
+                                    WHEN content_type like 'audio/%' THEN 'audio'
+                                    WHEN content_type like '%xml%' THEN 'xml'
+                                    WHEN content_type like '%binary%' THEN 'Binary File'
+                                    WHEN content_type like '%octet%' THEN 'Binary File'
+                                    WHEN content_type like '%font%' THEN 'Font'
+                                    WHEN content_type like 'multipart%' THEN 'Multipart'
+                                    ELSE content_type
+                           END,
+                           class) AS perc25_dcu,
+                           median(fbu) OVER (partition BY network, geo, url_domain, content_type,
+                           CASE
+                                    WHEN size < 10000 THEN 'Small'
+                                    WHEN size < 30000 THEN 'Medium'
+                                    WHEN size < 50000 THEN 'Medium+'
+                                    WHEN size < 200000 THEN 'Large'
+                                    ELSE 'X-Large'
+                           END,
+                           CASE
+                                    WHEN content_type like '%mage%' THEN 'image'
+                                    WHEN content_type like '%json%' THEN 'json'
+                                    WHEN content_type like '%html%' THEN 'html'
+                                    WHEN content_type like '%css%' THEN 'css'
+                                    WHEN content_type like 'text/plain%' THEN 'text'
+                                    WHEN content_type like '%javascript%' THEN 'javascript'
+                                    WHEN content_type like 'video/%' THEN 'video'
+                                    WHEN content_type like 'audio/%' THEN 'audio'
+                                    WHEN content_type like '%xml%' THEN 'xml'
+                                    WHEN content_type like '%binary%' THEN 'Binary File'
+                                    WHEN content_type like '%octet%' THEN 'Binary File'
+                                    WHEN content_type like '%font%' THEN 'Font'
+                                    WHEN content_type like 'multipart%' THEN 'Multipart'
+                                    ELSE content_type
+                           END,
+                           class)  AS perc50_fbu,
+                           median(dcu) OVER (partition BY network, geo, url_domain, content_type,
+                           CASE
+                                    WHEN size < 10000 THEN 'Small'
+                                    WHEN size < 30000 THEN 'Medium'
+                                    WHEN size < 50000 THEN 'Medium+'
+                                    WHEN size < 200000 THEN 'Large'
+                                    ELSE 'X-Large'
+                           END,
+                           CASE
+                                    WHEN content_type like '%mage%' THEN 'image'
+                                    WHEN content_type like '%json%' THEN 'json'
+                                    WHEN content_type like '%html%' THEN 'html'
+                                    WHEN content_type like '%css%' THEN 'css'
+                                    WHEN content_type like 'text/plain%' THEN 'text'
+                                    WHEN content_type like '%javascript%' THEN 'javascript'
+                                    WHEN content_type like 'video/%' THEN 'video'
+                                    WHEN content_type like 'audio/%' THEN 'audio'
+                                    WHEN content_type like '%xml%' THEN 'xml'
+                                    WHEN content_type like '%binary%' THEN 'Binary File'
+                                    WHEN content_type like '%octet%' THEN 'Binary File'
+                                    WHEN content_type like '%font%' THEN 'Font'
+                                    WHEN content_type like 'multipart%' THEN 'Multipart'
+                                    ELSE content_type
+                           END,
+                           class) AS perc50_dcu,
+                           percentile_cont(0.75) within GROUP (ORDER BY fbu) OVER (partition BY network, geo, url_domain, content_type,
+                           CASE
+                                    WHEN size < 10000 THEN 'Small'
+                                    WHEN size < 30000 THEN 'Medium'
+                                    WHEN size < 50000 THEN 'Medium+'
+                                    WHEN size < 200000 THEN 'Large'
+                                    ELSE 'X-Large'
+                           END,
+                           CASE
+                                    WHEN content_type like '%mage%' THEN 'image'
+                                    WHEN content_type like '%json%' THEN 'json'
+                                    WHEN content_type like '%html%' THEN 'html'
+                                    WHEN content_type like '%css%' THEN 'css'
+                                    WHEN content_type like 'text/plain%' THEN 'text'
+                                    WHEN content_type like '%javascript%' THEN 'javascript'
+                                    WHEN content_type like 'video/%' THEN 'video'
+                                    WHEN content_type like 'audio/%' THEN 'audio'
+                                    WHEN content_type like '%xml%' THEN 'xml'
+                                    WHEN content_type like '%binary%' THEN 'Binary File'
+                                    WHEN content_type like '%octet%' THEN 'Binary File'
+                                    WHEN content_type like '%font%' THEN 'Font'
+                                    WHEN content_type like 'multipart%' THEN 'Multipart'
+                                    ELSE content_type
+                           END,
+                           class) AS perc75_fbu,
+                           percentile_cont(0.75) within GROUP (ORDER BY dcu) OVER (partition BY network, geo, url_domain, content_type,
+                           CASE
+                                    WHEN size < 10000 THEN 'Small'
+                                    WHEN size < 30000 THEN 'Medium'
+                                    WHEN size < 50000 THEN 'Medium+'
+                                    WHEN size < 200000 THEN 'Large'
+                                    ELSE 'X-Large'
+                           END,
+                           CASE
+                                    WHEN content_type like '%mage%' THEN 'image'
+                                    WHEN content_type like '%json%' THEN 'json'
+                                    WHEN content_type like '%html%' THEN 'html'
+                                    WHEN content_type like '%css%' THEN 'css'
+                                    WHEN content_type like 'text/plain%' THEN 'text'
+                                    WHEN content_type like '%javascript%' THEN 'javascript'
+                                    WHEN content_type like 'video/%' THEN 'video'
+                                    WHEN content_type like 'audio/%' THEN 'audio'
+                                    WHEN content_type like '%xml%' THEN 'xml'
+                                    WHEN content_type like '%binary%' THEN 'Binary File'
+                                    WHEN content_type like '%octet%' THEN 'Binary File'
+                                    WHEN content_type like '%font%' THEN 'Font'
+                                    WHEN content_type like 'multipart%' THEN 'Multipart'
+                                    ELSE content_type
+                           END,
+                           class) AS perc75_dcu
                   FROM     tplog
                   WHERE    datetime > '{start_date}'
                   AND      datetime < '{end_date}'
-                  AND      cid = {cid} 
-                  AND      network IS NOT NULL 
-                  AND      geo IS NOT NULL 
-                  AND      url_domain IS NOT NULL 
-                  AND      content_type IS NOT NULL 
-                  AND      size IS NOT NULL 
-                  AND      dcu IS NOT NULL ) AS nested 
-GROUP BY partition1, 
-         partition2, 
-         partition3, 
-         partition4, 
+                  AND      cid = {cid}
+                  AND      network IS NOT NULL
+                  AND      geo IS NOT NULL
+                  AND      url_domain IS NOT NULL
+                  AND      content_type IS NOT NULL
+                  AND      size IS NOT NULL
+                  AND      dcu IS NOT NULL ) AS nested
+GROUP BY partition1,
+         partition2,
+         partition3,
+         partition4,
          partition5,
          partition6,
-         class 
-ORDER BY partition1, 
-         partition2, 
-         partition3, 
-         partition4, 
+         class
+ORDER BY partition1,
+         partition2,
+         partition3,
+         partition4,
          partition5,
          partition6
 LIMIT {limit};"""
@@ -299,7 +403,7 @@ content_types = {
     'Image': 'image',
     'multipart': 'multipart',
     'text': 'text',
-    'text/css': 'text', 
+    'text/css': 'text',
     'text/html': 'text',
     'text/javascript': 'text',
     'text/plain': 'text'

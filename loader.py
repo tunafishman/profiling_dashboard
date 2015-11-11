@@ -19,11 +19,16 @@ class RedShiftLoader():
         redshift = create_engine(self.engine_string)
         self.cursor = redshift.connect()
 
-    def Query(self, details):
-        if not self.cursor:
-            self.Connect()
-        
-        formatter = self.queryScrub(details) 
+    def Query(self, cid, start_date, end_date, limit):
+        self.test()
+
+        formatter = self.queryScrub({
+            'start_date': start_date,
+            'end_date': end,
+            'limit': limit,
+            'cid': cid
+            })
+
         rs_query = utils.redshift_query.format(**formatter)
         self.rows = self.cursor.execute(text(rs_query)).fetchall()
         print 'query complete', "%i rows returned" % len(self.rows)
@@ -59,40 +64,59 @@ class RedShiftLoader():
 
             hash_grouped[hash_string]['count'] += row['bin_count']
             class_exists = hash_grouped[hash_string]['metrics'].get(tpclass, False)
-            if class_exists: 
+            if class_exists:
                 hash_grouped[hash_string]['metrics'][tpclass]['count'] += row['bin_count']
                 if tpclass in ['acc', 'byp']:
                     #merge bins into existing descriptor
                     hash_grouped[hash_string]['metrics'][tpclass]['bins'].update({row['bin']: row['bin_count']})
             else:
                 #create new class entries
-                class_info = {
-                                 'medians': {
-                                     'fbu': row['fbu'], 
-                                     'dcu': row['dcu']
-                                 },
-                                 'sizes': {
-                                     'size_25': row['size_25'],
-                                     'size_50': row['size_50'],
-                                     'size_75': row['size_75']
-                                 },
-                                 'count': row['bin_count']
-                             }
+                class_info = {'count': row['bin_count']}
                 if tpclass in ['acc', 'byp']:
-                    class_info.update({'bins': { row['bin']: int(row['bin_count']) }}) #cast to int so it can be json serialized later
+
+                    sql_percentiles = ['perc25', 'perc50', 'perc75']
+                    sql_measures = ['fbu', 'dcu']
+                    percentiles = {}
+
+                    for measure in sql_measures:
+                        percentiles[measure] = {}
+                        for perc in sql_percentiles:
+                            key = '_'.join([perc, measure])
+                            if row[key]:
+                                percentiles[measure][key] = float(row[key])
+                            else:
+                                percentiles[measure][key] = None
+
+                    class_details = {
+                                        'percentiles': percentiles,
+                                         'sizes': {
+                                             'size_25': row['size_25'],
+                                             'size_50': row['size_50'],
+                                             'size_75': row['size_75']
+                                         },
+                                         'bins': {
+                                             row['bin']: int(row['bin_count']) #cast to int so it can be json serialized later
+                                         }
+                                    }
+
+                    class_info.update(class_details)
 
                 hash_grouped[hash_string]['metrics'][row['class']] = class_info
 
         print 'sum total of hashes', sum([hash_grouped[subset]['count'] for subset in hash_grouped])
 
-        self.comparables = self.FinalForm(self.SignificantChecks(hash_grouped))
+        self.comparables = self.finalForm(self.significantChecks(hash_grouped))
 
-    def CheckSampleSize(self, comparable):
-        return comparable['num_comparable_records'] >= self.SIGNIFICANT_RECORD_COUNT
+    def checkClasses(self, comparable):
+        #do medians exist for both acc and byp?
+        return all([ comparable['metrics'].get('byp', False), comparable['metrics'].get('acc', False)])
 
-    def CheckSizePrecision(self, comparable):
-        byp_sizes = comparable['metrics'].get('byp', {}).get('sizes', {})
-        acc_sizes = comparable['metrics'].get('acc', {}).get('sizes', {})
+    def checkSampleSize(self, comparable_count):
+        return comparable_count >= self.SIGNIFICANT_RECORD_COUNT
+
+    def checkSizePrecision(self, comparable_metrics):
+        byp_sizes = comparable_metrics.get('byp', {}).get('sizes', {})
+        acc_sizes = comparable_metrics.get('acc', {}).get('sizes', {})
         if not acc_sizes and byp_sizes:
             checks=[False]
         else:
@@ -100,8 +124,7 @@ class RedShiftLoader():
                   self.SIGNIFICANT_PERCENTILE_ERROR for perc in ['size_25', 'size_50', 'size_75']]
         return all(checks)
 
-    def SignificantChecks(self, hash_grouped):
-        """{}{}{}{}{} reformulate for new metrics object {}{}{}{}{}"""
+    def significantChecks(self, hash_grouped):
         comparables = []
         for hashid, comparable in hash_grouped.iteritems():
             num_comp = sum([comparable['metrics'].get(tpclass, {}).get('count', 0)
@@ -111,9 +134,9 @@ class RedShiftLoader():
             comparable['num_exception_records'] = num_except
             comparable['num_total_records'] = sum([num_comp, num_except])
 
-            if 'acc' in comparable['metrics'] and 'byp' in comparable['metrics']:
-                if self.CheckSampleSize(comparable):
-                    if self.CheckSizePrecision(comparable):
+            if self.checkClasses(comparable):
+                if self.checkSampleSize(comparable['num_comparable_records']):
+                    if self.checkSizePrecision(comparable['metrics']):
                         comparable['comparability'] = True
                     else:
                         comparable['comparability'] = False
@@ -128,10 +151,9 @@ class RedShiftLoader():
             comparables.append(comparable)
         return comparables
 
-    def FinalForm(self, comparable_list):
+    def finalForm(self, comparable_list):
         reduced_comparables = []
 
-        goods, bads = [], []
         for comparable in comparable_list:
             reduced = {
                 'cid': self.cid,
@@ -146,57 +168,47 @@ class RedShiftLoader():
                 'comparability': comparable['comparability'],
                 'fail_reason': comparable.get('fail_reason', None)
                 }
-            
+
             byp_metrics, acc_metrics = comparable['metrics'].get('byp', {}), comparable['metrics'].get('acc', {})
             bins = {
                 'acc': acc_metrics.get('bins', {}),
                 'byp': byp_metrics.get('bins', {})
                 }
             percentiles = {
-                'acc': {
-                    'dcu_median': float(acc_metrics.get('medians', {}).get('dcu', 0))
-                    },
-                'byp': {
-                    'dcu_median': float(byp_metrics.get('medians', {}).get('dcu', 0))
-                    }
+                'acc': acc_metrics.get('percentiles', {}),
+                'byp': byp_metrics.get('percentiles', {})
                 }
 
             reduced.update({'percentiles': json.dumps(percentiles), 'bins': json.dumps(bins)})
 
             if comparable['comparability']:
-                gain = comparable['metrics']['byp']['medians']['dcu'] / comparable['metrics']['acc']['medians']['dcu'] - 1
-                goods.append(comparable)
+                gain = float(percentiles['byp']['dcu']['perc50_dcu']) / float(percentiles['acc']['dcu']['perc50_dcu']) - 1
             else:
                 gain = None
-                bads.append(comparable)
             reduced.update({'gain': gain})
             reduced_comparables.append(reduced)
         return reduced_comparables
 
     def LoadToProduction(self):
-        for entry in self.comparables: 
+        for entry in self.comparables:
             rr = models.ReducedRow(**entry)
             db.session.add(rr)
         db.session.commit()
 
-    def Test(self):
+    def test(self):
         if not self.cursor:
             self.Connect()
-        self.Query({'cid':3521, 'limit':2, 'start_date':'2015-11-08', 'end_date':'2015-11-09'})
 
 if __name__ == "__main__":
     import credentials
     import sys
-    
+
     cid = sys.argv[1]
     start = str(sys.argv[2])
     end = str(sys.argv[3])
 
     tplog = RedShiftLoader(credentials.redshift_endpoint, credentials.redshift_dbname,
                            credentials.redshift_port, credentials.redshift_user, credentials.redshift_pass)
-    tplog.Query({'cid': cid, 'start_date': start, 'end_date': end, 'limit': 500000})
+    tplog.Query(cid=cid,start_date=start,end_date=end,limit=5000000)
     tplog.ReduceResults()
     tplog.LoadToProduction()
-    #tplog.Test()
-    #for row in tplog.rows[:100]:
-    #    print row

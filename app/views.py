@@ -58,7 +58,6 @@ def gains(cid, breakout):
 
     to_return = {'results': {}}
     for tpslice in filter(lambda x: x not in ['total'], temp.keys()):
-        print tpslice, temp[tpslice]
         to_return['results'][tpslice] = {
             'gain': temp[tpslice]['boltzmann_factor'] / temp[tpslice]['total'],
             'portion': temp[tpslice]['total'] / temp['total']
