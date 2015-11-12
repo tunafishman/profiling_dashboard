@@ -1,15 +1,22 @@
 from app import app, models, utils
 from collections import Counter, defaultdict
-from flask import jsonify, request
+from flask import jsonify, render_template, request
 
 import json
 import time
 
+
+### pages ###
 @app.route('/')
 @app.route('/index')
 def index():
-    return "Hello World"
+    return render_template("hero-thirds.html")
 
+@app.route('/test')
+def test():
+    return render_template("test.html")
+
+### API endpoints ###
 @app.route('/api/v1/<cid>/comparables/')
 def comparables(cid):
     passing_comparables = models.ReducedRow.query.filter_by(cid=cid).filter_by(comparability="True").all()
@@ -56,15 +63,17 @@ def gains(cid, breakout):
     print 'total records considered: {}'.format(total)
     temp['total'] = total 
 
-    to_return = {'results': {}}
+    to_return = []
     for tpslice in filter(lambda x: x not in ['total'], temp.keys()):
-        to_return['results'][tpslice] = {
+        to_return.append({
+            'label': tpslice,
             'gain': temp[tpslice]['boltzmann_factor'] / temp[tpslice]['total'],
             'portion': temp[tpslice]['total'] / temp['total']
-            }
+            })
     totaltime = time.time() - starttime
     print totaltime
-    return jsonify(to_return)
+    print to_return
+    return json.dumps(to_return)
 
 @app.route('/api/v1/<cid>/histogram/')
 def histogram(cid):
