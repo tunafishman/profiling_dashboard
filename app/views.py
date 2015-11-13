@@ -21,11 +21,50 @@ def bootstrap():
     return render_template('bootstrap.html')
 
 ### API endpoints ###
+api_breakouts = {
+    'network': 'network', 
+    'geo': 'geo', 
+    'url_domain': 'url_domain', 
+    'size': 'size', 
+    'content_type': 'content_type'
+    }
+
+def queryFilter(base_query, selector_string):
+    fq = base_query
+    selector_types, error = utils.parseSelector(selector_string)
+    if error:
+        return {'error': error}
+
+    for expr in selector_types[' = ']:
+        print expr
+        if 'not' in expr[0]:
+            expr[0] = expr[0].split('not')[0].strip()
+            print expr
+            fq = fq.filter(getattr(models.ReducedRow, expr[0]) != expr[1])
+        else:
+            fq = fq.filter(getattr(models.ReducedRow, expr[0]) == expr[1])
+    for expr in selector_types[' like ']:
+        if 'not' in expr[0]:
+            expr[0] = expr[0].split('not')[0].strip()
+            fq = fq.filter(~getattr(models.ReducedRow, expr[0]).like("%%{}%%".format(expr[1])))
+        else:
+            fq = fq.filter(getattr(models.ReducedRow, expr[0]).like("%%{}%%".format(expr[1])))
+
+    for expr in selector_types[' in ']:
+        print expr, type(expr[1])
+        if 'not' in expr[0]:
+            expr[0] = expr[0].split('not')[0].strip()
+            fq = fq.filter(~getattr(models.ReducedRow, expr[0]).in_(expr[1]))
+        else:
+            fq = fq.filter(getattr(models.ReducedRow, expr[0]).in_(expr[1]))
+
+    return {'results': fq.all()}
+
 @app.route('/api/v1/<cid>/comparables/')
 def comparables(cid):
     passing_comparables = models.ReducedRow.query.filter_by(cid=cid).filter_by(comparability="True").all()
     hashes = []
-    id_keys = ['network', 'geo', 'url_domain', 'size', 'content_type']
+    
     for entry in passing_comparables:
         hashes.append(entry.network)
     return jsonify({'comparables': hashes}) 
@@ -33,33 +72,21 @@ def comparables(cid):
 @app.route('/api/v1/<cid>/gains/breakout/<breakout>')
 def gains(cid, breakout):
     starttime = time.time()
-    acceptable_breakouts =  {
-                    'network': 0,
-                    'geo': 1,
-                    'url_domain': 2,
-                    'size': 3,
-                    'content_type': 4
-                    }
-    if breakout not in acceptable_breakouts:
+    if breakout not in api_breakouts:
         return "Break not my api"
     else:
-        case = acceptable_breakouts[breakout]
+        breakout = api_breakouts[breakout]
 
-    results = models.ReducedRow.query.filter_by(cid=cid).filter_by(comparability="True").all()
+    base = models.ReducedRow.query.filter_by(cid=cid).filter_by(comparability="True")
+    filtered = queryFilter(base, request.args.get('selector', ''))
+    
+    if filtered.get('error', False):
+        return jsonify(filtered)
+    
     temp = defaultdict(lambda: defaultdict(float))
         
-    for entry in results:
-        if case == 0:
-            subset = entry.network
-        elif case == 1:
-            subset = entry.geo
-        elif case == 2:
-            subset = entry.url_domain
-        elif case == 3:
-            subset = entry.size
-        elif case == 4:
-            subset = entry.content_type   
-
+    for entry in filtered['results']:
+        subset = getattr(entry, breakout)
         temp[subset]['boltzmann_factor'] += float(entry.gain) * float(entry.num_comparable_records)
         temp[subset]['total'] += float(entry.num_comparable_records)
 
@@ -76,7 +103,6 @@ def gains(cid, breakout):
             }
     totaltime = time.time() - starttime
     print totaltime
-    print to_return
     return jsonify(to_return)
 
 @app.route('/api/v1/<cid>/histogram/')

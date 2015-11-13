@@ -410,5 +410,30 @@ content_types = {
     }
 
 def parseSelector(selector_string):
-    print selector_string
-    return ''
+    '''returns a dict of filter lists to be applied and an optional error'''
+    
+    selector_types = {
+            ' = ': [],
+            ' like ': [],
+            ' in ': []
+            }
+
+    if not selector_string:
+        return selector_types, None
+
+    selectors = selector_string.split('and')
+    for selector in selectors:
+        select_type = [x for x in selector_types if x in selector]
+        if len(select_type) != 1:
+            return {}, "Selector error in {}".format(selector)
+        
+        s_type = select_type[0]
+        split_selector = [x.strip() for x in selector.split(s_type)]
+        if s_type == ' in ':
+            split_selector[1] = [x.strip() for x in split_selector[1].replace(')','').replace('(','').split(',')]
+        
+        selector_types[s_type].append(split_selector)
+
+    print selector_types
+    
+    return selector_types, None 
