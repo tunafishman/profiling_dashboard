@@ -58,3 +58,4 @@ target/
 
 flask/
 credentials.py
+.DS*
