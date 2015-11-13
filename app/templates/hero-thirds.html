@@ -1,8 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dashboard</title>
-  <link href="static/css/dashboard.css">
+    <title>Dashboard</title>
+    <link rel="stylesheet" type="text/css" href="static/css/dashboard.css" />
+    <link rel="stylesheet" type="text/css" href="static/libs/bootstrap/css/bootstrap.min.css" />
+    <link rel="stylesheet" type="text/css" href="static/css/nv.d3.css" />
+    <script src="static/js/d3.min.js" charset="utf-8"></script>
+    <script src="static/js/nvd3.js"></script>
+    <script src="static/js/samples.js"></script>  
+    <script src="static/js/comparables.js"></script>
 </head>
 <body class="application">
 
@@ -22,10 +28,10 @@
       </div>
       <div class="navbar-collapse collapse">
         <ul class="nav navbar-nav navbar-left">
-          <li><a href="https://keen.io">Home</a></li>
+          <!--<li><a href="https://keen.io">Home</a></li>
           <li><a href="https://keen.io/team">Team</a></li>
           <li><a href="https://github.com/keenlabs/dashboards/tree/gh-pages/layouts/hero-thirds">Source</a></li>
-          <li><a href="https://groups.google.com/forum/#!forum/keen-io-devs">Community</a></li><li><a href="http://stackoverflow.com/questions/tagged/keen-io?sort=newest&pageSize=15">Technical Support</a></li>
+          <li><a href="https://groups.google.com/forum/#!forum/keen-io-devs">Community</a></li><li><a href="http://stackoverflow.com/questions/tagged/keen-io?sort=newest&pageSize=15">Technical Support</a></li>-->
         </ul>
       </div>
     </div>
@@ -37,15 +43,18 @@
       <div class="col-sm-8">
         <div class="chart-wrapper">
           <div class="chart-title">
-            Cell Title
+            Population Shift
           </div>
           <div class="chart-stage">
             <div id="grid-1-1">
-              <img data-src="holder.js/100%x240/white/text:#grid-1-1">
+                <svg></svg>
+                
+                <!--<img data-src="holder.js/100%x240/white/text:#grid-1-1">
+                -->
             </div>
           </div>
           <div class="chart-notes">
-            Notes about this chart
+              The entire population of download complete times
           </div>
         </div>
       </div>
@@ -55,7 +64,11 @@
             Cell Title
           </div>
           <div class="chart-stage">
-            <img data-src="holder.js/100%x240/white">
+            <div id="grid-1-2">
+              <svg></svg>
+            <!--<img data-src="holder.js/100%x240/white">
+            -->
+            </div>
           </div>
           <div class="chart-notes">
             Notes about this chart
@@ -150,20 +163,18 @@
 
     <hr>
 
-    <p class="small text-muted">Built with &#9829; by <a href="https://keen.io">Keen IO</a></p>
-
   </div>
 
-  <script type="text/javascript" src="../../assets/lib/jquery/dist/jquery.min.js"></script>
-  <script type="text/javascript" src="../../assets/lib/bootstrap/dist/js/bootstrap.min.js"></script>
+  <script type="text/javascript" src="static/libs/jQuery/jquery-1.11.3.min.js"></script>
+  <script type="text/javascript" src="static/libs/bootstrap/js/bootstrap.min.js"></script>
 
-  <script type="text/javascript" src="../../assets/lib/holderjs/holder.js"></script>
+  <script type="text/javascript" src="static/libs/holder/holder.js"></script>
   <script>
     Holder.add_theme("white", { background:"#fff", foreground:"#a7a7a7", size:10 });
+    addHist(document.getElementById("grid-1-1"))
+    addBreakout(document.getElementById("grid-1-2"))
   </script>
 
-  <script type="text/javascript" src="../../assets/lib/keen-js/dist/keen.min.js"></script>
-  <script type="text/javascript" src="../../assets/js/meta.js"></script>
 
 </body>
 </html>

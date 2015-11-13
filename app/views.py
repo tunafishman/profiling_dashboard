@@ -16,6 +16,10 @@ def index():
 def test():
     return render_template("test.html")
 
+@app.route('/bootstrap')
+def bootstrap():
+    return render_template('bootstrap.html')
+
 ### API endpoints ###
 @app.route('/api/v1/<cid>/comparables/')
 def comparables(cid):
@@ -63,17 +67,17 @@ def gains(cid, breakout):
     print 'total records considered: {}'.format(total)
     temp['total'] = total 
 
-    to_return = []
+    to_return = {}
     for tpslice in filter(lambda x: x not in ['total'], temp.keys()):
-        to_return.append({
+        to_return[tpslice] = {
             'label': tpslice,
             'gain': temp[tpslice]['boltzmann_factor'] / temp[tpslice]['total'],
             'portion': temp[tpslice]['total'] / temp['total']
-            })
+            }
     totaltime = time.time() - starttime
     print totaltime
     print to_return
-    return json.dumps(to_return)
+    return jsonify(to_return)
 
 @app.route('/api/v1/<cid>/histogram/')
 def histogram(cid):
