@@ -8,7 +8,6 @@
     <script src="static/libs/d3/js/d3.min.js" charset="utf-8"></script>
     <script src="static/libs/nvd3/js/nvd3.js"></script>
     <script src="static/js/samples.js"></script>  
-    <script src="static/js/comparables.js"></script>
 </head>
 <body class="application">
 
@@ -38,7 +37,7 @@
   </div>
 
   <div class="container-fluid">
-
+    <input id="selector" type="text" name="selector" /><input id="breakout" type="text" /><input id="fetch" type="button" value="Run" />
     <div class="row">
       <div class="col-sm-8">
         <div class="chart-wrapper">
@@ -167,12 +166,29 @@
 
   <script type="text/javascript" src="static/libs/jQuery/js/jquery-1.11.3.min.js"></script>
   <script type="text/javascript" src="static/libs/bootstrap/js/bootstrap.min.js"></script>
+  <script src="static/js/comparables.js"></script>
 
   <script type="text/javascript" src="static/libs/holder/holder.js"></script>
   <script>
     Holder.add_theme("white", { background:"#fff", foreground:"#a7a7a7", size:10 });
-    addHist(document.getElementById("grid-1-1"))
-    addBreakout(document.getElementById("grid-1-2"))
+    function makeGraphs() {
+        selector = $( "#selector" ).val()
+        breakout = $( "#breakout" ).val()
+        console.log(typeof selector);
+        console.log(typeof breakout)
+
+        population_div = "#grid-1-1"
+        gains_div = "#grid-1-2"
+
+        makeGains(gains_div, selector, breakout);
+        makePopulation(population_div, selector)
+    };
+    $( window ).load( function () {
+        makeGraphs();
+    });
+    $( "#fetch" ).click( function() { 
+        makeGraphs(); 
+    });
   </script>
 
 

@@ -22,6 +22,7 @@ def bootstrap():
 
 ### API endpoints ###
 api_breakouts = {
+    '': None,
     'network': 'network', 
     'geo': 'geo', 
     'url_domain': 'url_domain', 
@@ -69,16 +70,22 @@ def comparables(cid):
         hashes.append(entry.network)
     return jsonify({'comparables': hashes}) 
 
-@app.route('/api/v1/<cid>/gains/breakout/<breakout>')
-def gains(cid, breakout):
+@app.route('/api/v1/<cid>/gains/')
+def gains(cid):
     starttime = time.time()
+
+    details = request.args
+    print details
+
+    breakout = details.get('breakout', '')
+
     if breakout not in api_breakouts:
         return "Break not my api"
     else:
         breakout = api_breakouts[breakout]
 
     base = models.ReducedRow.query.filter_by(cid=cid).filter_by(comparability="True")
-    filtered = queryFilter(base, request.args.get('selector', ''))
+    filtered = queryFilter(base, details.get('selector', ''))
     
     if filtered.get('error', False):
         return jsonify(filtered)
@@ -86,7 +93,10 @@ def gains(cid, breakout):
     temp = defaultdict(lambda: defaultdict(float))
         
     for entry in filtered['results']:
-        subset = getattr(entry, breakout)
+        if breakout:
+            subset = getattr(entry, breakout)
+        else:
+            subset = 'global'
         temp[subset]['boltzmann_factor'] += float(entry.gain) * float(entry.num_comparable_records)
         temp[subset]['total'] += float(entry.num_comparable_records)
 
@@ -98,7 +108,7 @@ def gains(cid, breakout):
     for tpslice in filter(lambda x: x not in ['total'], temp.keys()):
         to_return[tpslice] = {
             'label': tpslice,
-            'gain': temp[tpslice]['boltzmann_factor'] / temp[tpslice]['total'],
+            'value': temp[tpslice]['boltzmann_factor'] / temp[tpslice]['total'],
             'portion': temp[tpslice]['total'] / temp['total']
             }
     totaltime = time.time() - starttime
@@ -107,14 +117,19 @@ def gains(cid, breakout):
 
 @app.route('/api/v1/<cid>/histogram/')
 def histogram(cid):
-    filters = utils.parseSelector(request.args.get('selector', ''))
+    details = request.args
+    selector = details.get('selector', '')
+    breakout = ''
+    print details.get('selector', '')
     comparable_query = request.args.get('comparable', False)
-    results = models.ReducedRow.query.filter_by(cid=cid)
-    if filters:
-        results.filter_by(filters)
+    base_query  = models.ReducedRow.query.filter_by(cid=cid)
+    filtered = queryFilter(base_query, selector)
 
+    if filtered.get('error', False):
+        return jsonify(filtered)
+    totals = defaultdict(int)
     results_agg = defaultdict(Counter)
-    for comp in results.all():
+    for comp in filtered['results']:
         temp = {}
         comp_bins = json.loads(comp.bins)
         temp['byp'] = Counter(comp_bins.get('byp', {}))
@@ -123,7 +138,16 @@ def histogram(cid):
             if comp.comparability:
                 temp['acc'] = Counter(comp_bins.get('acc', {}))
         #else aggregate byp only
+
         for tpclass in temp:
             results_agg[tpclass] += temp[tpclass]
+
+    for tpclass in results_agg:
+        #grab total
+        total = sum([v for k, v in results_agg[tpclass].iteritems()])
+        
+        for bucket, bucket_num in results_agg[tpclass].iteritems():
+            results_agg[tpclass][bucket] = float(bucket_num) / total
+        print 'results hist', results_agg[tpclass], total
 
     return jsonify(results_agg)
