@@ -1,42 +1,60 @@
-function api_query(cid, endpoint, selector, breakout) {
+function api_query(cid, endpoint, args) {
     base_url = "http://localhost:5001/api/v1/"
 
-    if (!(endpoint == 'gains' || endpoint == 'histogram')) { return {} }
+    if (!(endpoint == 'gains' || endpoint == 'histogram' || endpoint == 'comparables')) { return {} }
 
-    api_url = base_url + cid + '/' + endpoint + '/?breakout=' + breakout + '&selector=' + selector + '&comparable=true'
-    xhr = $.ajax(api_url)
+    api_url = base_url + cid + '/' + endpoint + '/'
+    xhr = $.ajax({
+        url: api_url,
+        type: "get",
+        data: args
+    })
 
     return xhr
 }
 
-function makeGains( id, selector, breakout) {
-    console.log(typeof breakout)
-    api_query(91, 'gains', selector, breakout).done(function(data){addBreakout(id, data)});
+//function getCIDs( id ) {
+//    api_query( 'cids' ).done(function(data) {cidDropDown(id, data)});
+//}
+
+function makeGains( id, cid, selector, breakout) {
+    api_query(cid, 'gains', {selector: selector, breakout: breakout}).done(function(data){
+        addBreakout(id, breakout_map(data));
+    });
 };
 
-function makePopulation( id, selector) {
+function makePopulation( id, cid, selector) {
     console.log(selector);
-    api_query(91, 'histogram', selector).done(function(data){addHist( id, data)})
+    api_query(cid, 'histogram', {selector: selector, comparable: true}).done(function(data){
+        var hist = hist_map(data.histograms)
+        addHist(id, hist);
+    });
 };
+
+function makeBreakout( id, cid, selector, breakout) {
+    console.log(id);
+    api_query(cid, 'comparables', {selector:selector, breakout:breakout}).done( function(data) {
+        addBreakout(id, breakout_map(data));
+    });
+}
+
+function breakout_map(api_breakout) {
+    plottable = []
+    temp = {key: api_breakout.key, values: api_breakout.values.sort(function(a, b) { return a.label.localeCompare(b.label)})}
+    plottable.push(temp)
+    return plottable
+}
 
 function hist_map(api_hist) {
-    if (Object.keys(api_hist).length == 0) {
-        alert("something happened");
-    } else {
-        series = []
-        Object.keys(api_hist).map(function(tpclass, i) {
-            
-            this_hist = []
-            Object.keys(api_hist[tpclass]).map(function(bucket) {
-                obj = {x: parseInt(bucket), y: api_hist[tpclass][bucket]}
-                this_hist.push(obj)
-            })
-
-            series.push({ key: tpclass, values: this_hist})
-        })
+    plottable = []
+    for (entry in api_hist) {
+        temp = {key: api_hist[entry].key, values: api_hist[entry].values.sort(function(a,b){return a.x - b.x})}
+        plottable.push(temp)
     }
 
-    return series
+    console.log(plottable)
+
+    return plottable
 }
 
 function gain_map(api_gain) {
@@ -46,7 +64,6 @@ function gain_map(api_gain) {
     Object.keys(api_gain).map(function(label, i) {
         series.push(api_gain[label])
     });
-    console.log(series)
     return [{key:'gains', values:series}];
 }
 
@@ -68,13 +85,11 @@ function addHist(id, data) {
                 console.log('Render 2 Complete');
             });
             d3.select(id)
-                .datum(hist_map(data))
+                .datum(data)
                 .attr('width', width)
                 .attr('height', height)
                 .transition().duration(0)
                 .call(chart);
-            console.log('calling chart 2');
-            console.log(hist_map(hist));
 
             return chart;
         },
@@ -89,18 +104,16 @@ function addHist(id, data) {
                     .attr('height', height)
                     .transition().duration(0)
                     .call(chart);
-
             });
         }
     });
 }
 
-function massageGain(data) { return [{key: 'gains',values: data}] }
 
 function addBreakout(id, data) {
-    console.log('sad');
-    console.log(data)
-    var id = id + " svg"
+
+    var id = id + " svg";
+
     nv.addGraph({
         generate: function() {
             var width = $(id).outerWidth(),
@@ -118,11 +131,10 @@ function addBreakout(id, data) {
            
 
             d3.select(id)
-                .datum(gain_map(data))
+                .datum(data)
                 .attr('height', height)
                 .transition().duration(0)
                 .call(chart);
-
 
             return chart;
         },
@@ -137,9 +149,7 @@ function addBreakout(id, data) {
                     .attr('height', height)
                     .transition().duration(0)
                     .call(graph);
-
             });
         }
-
     });
 }

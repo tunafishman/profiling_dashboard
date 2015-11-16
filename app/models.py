@@ -17,3 +17,5 @@ class ReducedRow(db.Model):
     fail_reason = db.Column(db.String(20))
     bins = db.Column(JSON)
     percentiles = db.Column(JSON)
+    reduced_date = db.Column(db.DateTime)
+

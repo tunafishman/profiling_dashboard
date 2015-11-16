@@ -4,6 +4,7 @@ from collections import defaultdict
 from pprint import pprint
 from sqlalchemy import create_engine, text
 
+import datetime
 import json
 
 class RedShiftLoader():
@@ -19,31 +20,32 @@ class RedShiftLoader():
         redshift = create_engine(self.engine_string)
         self.cursor = redshift.connect()
 
-    def Query(self, cid, start_date, end_date, limit):
+    def Query(self, cid, start_date='', end_date='', limit=500):
         self.test()
 
         formatter = self.queryScrub({
             'start_date': start_date,
-            'end_date': end,
+            'end_date': end_date,
             'limit': limit,
             'cid': cid
             })
+
+        print formatter
+        self.currentStart = formatter['start_date']
 
         rs_query = utils.redshift_query.format(**formatter)
         self.rows = self.cursor.execute(text(rs_query)).fetchall()
         print 'query complete', "%i rows returned" % len(self.rows)
 
     def queryScrub(self, details):
-        if 'cid' not in details:
-            exit('specify cid')
-        else:
-            self.cid = details['cid']
+        ''' some day this would check for whether a user had access to this cid '''
+        self.cid = details['cid']
 
         scrubbed = {
             'cid': details['cid'],
-            'start_date': details.get('start_date', '2015-11-07'),
-            'end_date': details.get('end_date', '2015-11-09'),
-            'limit': details.get('limit', 500)
+            'start_date': details.get('start_date', datetime.date.today() - datetime.timedelta(days=1)).isoformat(),
+            'end_date': details.get('end_date', datetime.date.today()).isoformat(),
+            'limit': details.get('limit')
             }
         return scrubbed
 
@@ -166,7 +168,8 @@ class RedShiftLoader():
                 'num_comparable_records': comparable['num_comparable_records'],
                 'num_exception_records': comparable['num_exception_records'],
                 'comparability': comparable['comparability'],
-                'fail_reason': comparable.get('fail_reason', None)
+                'fail_reason': comparable.get('fail_reason', None),
+                'reduced_date': self.currentStart
                 }
 
             byp_metrics, acc_metrics = comparable['metrics'].get('byp', {}), comparable['metrics'].get('acc', {})
@@ -195,6 +198,18 @@ class RedShiftLoader():
             db.session.add(rr)
         db.session.commit()
 
+    def DailyJobs(self, cid, num_days, end=datetime.datetime.now()):
+        ''' create a set of jobs to process for daily aggregation '''
+        today = datetime.date.today()
+        dates = [ (today - datetime.timedelta(days=n), today - datetime.timedelta(days=n+1)) for n in range(0, num_days) ]
+
+        for job in dates:
+            self.Query( cid, job[1], job[0], 500000)
+            self.ReduceResults()
+            self.LoadToProduction()
+
+            self.rows, self.comparables = None, None
+
     def test(self):
         if not self.cursor:
             self.Connect()
@@ -204,11 +219,10 @@ if __name__ == "__main__":
     import sys
 
     cid = sys.argv[1]
-    start = str(sys.argv[2])
-    end = str(sys.argv[3])
+    num_days = int(sys.argv[2])
 
     tplog = RedShiftLoader(credentials.redshift_endpoint, credentials.redshift_dbname,
                            credentials.redshift_port, credentials.redshift_user, credentials.redshift_pass)
-    tplog.Query(cid=cid,start_date=start,end_date=end,limit=5000000)
-    tplog.ReduceResults()
-    tplog.LoadToProduction()
+    #tplog.Query( 3521, datetime.date(2015, 11, 14), datetime.date(2015, 11, 15), 500000 )
+    #tplog.Query( 3521, datetime.date(2015, 11, 13), datetime.date(2015, 11, 14), 500000 )
+    tplog.DailyJobs(cid, num_days)

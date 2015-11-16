@@ -37,7 +37,7 @@
   </div>
 
   <div class="container-fluid">
-    <input id="selector" type="text" name="selector" /><input id="breakout" type="text" /><input id="fetch" type="button" value="Run" />
+      <input id="cid" type="text" /><input id="selector" type="text" name="selector" /><input id="breakout" type="text" /><input id="fetch" type="button" value="Run" />
     <div class="row">
       <div class="col-sm-8">
         <div class="chart-wrapper">
@@ -47,9 +47,6 @@
           <div class="chart-stage">
             <div id="grid-1-1">
                 <svg></svg>
-                
-                <!--<img data-src="holder.js/100%x240/white/text:#grid-1-1">
-                -->
             </div>
           </div>
           <div class="chart-notes">
@@ -60,17 +57,15 @@
       <div class="col-sm-4">
         <div class="chart-wrapper">
           <div class="chart-title">
-            Cell Title
+            Gain breakout
           </div>
           <div class="chart-stage">
             <div id="grid-1-2">
               <svg></svg>
-            <!--<img data-src="holder.js/100%x240/white">
-            -->
             </div>
           </div>
           <div class="chart-notes">
-            Notes about this chart
+            How are we doing per subset
           </div>
         </div>
       </div>
@@ -106,13 +101,15 @@
       <div class="col-sm-6 col-md-4">
         <div class="chart-wrapper">
           <div class="chart-title">
-            Cell Title
+              Traffic portion
           </div>
           <div class="chart-stage">
-            <img data-src="holder.js/100%x120/white">
+            <div id="grid-2-3">
+              <svg></svg>
+            </div>
           </div>
           <div class="chart-notes">
-            Notes about this chart
+              Based on counts of requests we've seen
           </div>
         </div>
       </div>
@@ -174,17 +171,19 @@
     function makeGraphs() {
         selector = $( "#selector" ).val()
         breakout = $( "#breakout" ).val()
-        console.log(typeof selector);
-        console.log(typeof breakout)
+        cid = $( "#cid" ).val()
 
         population_div = "#grid-1-1"
         gains_div = "#grid-1-2"
+        breakout_div = "#grid-2-3"
 
-        makeGains(gains_div, selector, breakout);
-        makePopulation(population_div, selector)
+        makeGains(gains_div, cid,  selector, breakout);
+        makePopulation(population_div, cid, selector)
+        makeBreakout(breakout_div, cid, selector, breakout)
     };
     $( window ).load( function () {
-        makeGraphs();
+        cid = $( "#cid" ).val();
+        if (cid) { makeGraphs();}
     });
     $( "#fetch" ).click( function() { 
         makeGraphs(); 
