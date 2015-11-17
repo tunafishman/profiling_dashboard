@@ -1,7 +1,7 @@
 function api_query(cid, endpoint, args) {
     base_url = "http://localhost:5001/api/v1/"
 
-    if (!(endpoint == 'gains' || endpoint == 'histogram' || endpoint == 'comparables')) { return {} }
+    if (!(endpoint == 'gains' || endpoint == 'histogram' || endpoint == 'comparables' || endpoint == 'lifecycle')) { return {} }
 
     api_url = base_url + cid + '/' + endpoint + '/'
     xhr = $.ajax({
@@ -41,15 +41,29 @@ function makeBreakout( id, cid, selector, breakout) {
 function breakout_map(api_breakout) {
     plottable = []
     temp = {key: api_breakout.key, values: api_breakout.values.sort(function(a, b) { return a.label.localeCompare(b.label)})}
-    plottable.push(temp)
+    console.log(temp)
+    for ( datapoint in temp.values ) {
+        temp.values[datapoint].value *= 100
+    };
+    plottable.push(temp);
+    console.log(plottable)
     return plottable
 }
 
 function hist_map(api_hist) {
     plottable = []
     for (entry in api_hist) {
-        temp = {key: api_hist[entry].key, values: api_hist[entry].values.sort(function(a,b){return a.x - b.x})}
-        plottable.push(temp)
+        i = 0;
+        vals = api_hist[entry].values.sort(function(a,b){return a.x - b.x});
+        new_vals = [];
+        total = 0;
+        while (i < vals.length && total < .8) {
+            temp = {x: vals[i].x, y: Math.round(100 * vals[i].y)/100}
+            new_vals.push(temp)
+            total += vals[i].y
+            i += 1;
+        }
+        plottable.push({key: api_hist[entry].key, values: new_vals})
     }
 
     console.log(plottable)
@@ -59,7 +73,11 @@ function hist_map(api_hist) {
 
 function gain_map(api_gain) {
     console.log('gain_map');
-    var series = []
+    var series = [];
+
+    for (subset in api_gain.gains) {
+        api_gain.gains[subset].value *= 100
+    }
 
     Object.keys(api_gain).map(function(label, i) {
         series.push(api_gain[label])
@@ -74,11 +92,13 @@ function addHist(id, data) {
             var width = $(id).outerWidth(),
                 height = 240; 
 
-            var chart = nv.models.multiBarChart()
-                .width(width)
-                .height(height)
-                .stacked(false)
-                .showControls(false)
+            var chart = nv.models.lineChart()
+                //.width(width)
+                .height(240)
+                //.showYAxis(false)
+                //.stacked(false)
+                //.showControls(false)
+                //.isArea(true)
                 ;
 
             chart.dispatch.on('renderEnd', function(){

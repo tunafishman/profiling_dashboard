@@ -2,6 +2,7 @@ from app import app, models, utils
 from collections import Counter, defaultdict
 from flask import jsonify, render_template, request
 
+import copy
 import json
 import time
 
@@ -16,9 +17,9 @@ def index():
 def test():
     return render_template("test.html")
 
-@app.route('/bootstrap')
-def bootstrap():
-    return render_template('bootstrap.html')
+@app.route('/life')
+def life():
+    return render_template("lifecycle.html")
 
 ### API endpoints ###
 api_breakouts = {
@@ -38,7 +39,6 @@ def queryFilter(base_query, selector_string):
         return {'error': error}
 
     for expr in selector_types[' = ']:
-        print expr
         if 'not' in expr[0]:
             expr[0] = expr[0].split('not')[0].strip()
             fq = fq.filter(getattr(models.ReducedRow, expr[0]) != expr[1])
@@ -88,7 +88,7 @@ def comparables(cid):
         if breakout:
             subset = getattr(entry, breakout)
         else:
-            subset = 'global'
+            subset = 'total'
 
         if comp:
             num = entry.num_comparable_records
@@ -100,8 +100,6 @@ def comparables(cid):
     total = sum([v for k, v in results_agg.iteritems()])
     results_agg = [{'label': k, 'value': float(v)/total} for k, v in results_agg.iteritems()]
 
-    print results_agg
-        
     return jsonify({'key': 'comparables', 'values': results_agg}) 
 
 @app.route('/api/v1/<cid>/gains/')
@@ -128,9 +126,8 @@ def gains(cid):
         if breakout:
             subset = getattr(entry, breakout)
         else:
-            subset = 'global'
+            subset = 'total'
 
-        print subset
         temp[subset]['boltzmann_factor'] += float(entry.gain) * float(entry.num_comparable_records)
         temp[subset]['total'] += float(entry.num_comparable_records)
 
@@ -188,3 +185,77 @@ def histogram(cid):
     print duration
 
     return jsonify({'histograms': to_return})
+
+@app.route('/api/v1/<cid>/lifecycle/')
+def lifecycle(cid):
+    starttime = time.time()
+    details = request.args
+    print type(details), details
+    selector = details.get('selector', '')
+    breakout = details.get('breakout', '')
+    comparable_query = request.args.get('comparable', 'false').lower() == 'true'
+    
+    if breakout not in api_breakouts:
+        return "Break not my api"
+    else:
+        breakout = api_breakouts[breakout]
+    
+    perc_base = {'byp': {'fbu': defaultdict(float), 'dcu': defaultdict(float)}}
+
+    base_query = models.ReducedRow.query.filter_by(cid=cid)
+
+    if comparable_query:
+        base_query.filter_by(comparability=True)
+        perc_base.update({'acc': {'fbu': defaultdict(float), 'dcu': defaultdict(float)}})
+
+    filtered = queryFilter(base_query, selector)
+
+    if filtered.get('error', False):
+        return jsonify(filtered)
+
+    results_agg = {}
+    for entry in filtered['results']:
+        if breakout:
+            subset = getattr(entry, breakout)
+        else:
+            subset = 'total'
+  
+        if not results_agg.get(subset, False):
+            print "Making results for {}".format(subset)
+            results_agg[subset] = copy.copy(perc_base)
+
+        percs = json.loads(entry.percentiles)
+        
+        #check to see if the measurements are there for this comparable
+        if not all([percs.get(tpclass, {}) != {} for tpclass in perc_base.keys()]):
+            continue
+        
+        for tpclass in results_agg[subset]:
+            for measure in ['fbu', 'dcu']:
+                for perc in ['perc25', 'perc50', 'perc75']:
+                    key = "_".join([perc, measure])
+                    try:
+                        results_agg[subset][tpclass][measure][key] += (percs[tpclass][measure][key] * entry.num_comparable_records) 
+                        results_agg[subset][tpclass][measure][key + '_total'] += entry.num_comparable_records
+                    except:
+                        print "I'm not sure what to do with these yet", percs
+
+    to_return = []
+    for subset in results_agg:
+        print subset
+        percentiles = {'count':0}
+        for tpclass in results_agg[subset]:
+            percentiles.update({tpclass: {}})
+            for measure in ['fbu', 'dcu']:
+                percentiles[tpclass][measure] = {}
+                for perc in ['perc25', 'perc50', 'perc75']:
+                    key = "_".join([perc, measure])
+                    try:
+                        percentiles[tpclass][measure][key] = results_agg[subset][tpclass][measure][key] / results_agg[subset][tpclass][measure][key + "_total"]
+                    except:
+                        continue
+                        print results_agg[subset][tpclass]
+
+        to_return.append({subset: percentiles})
+
+    return jsonify({'percentiles': to_return})
