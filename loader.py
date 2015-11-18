@@ -6,19 +6,37 @@ from sqlalchemy import create_engine, text
 
 import datetime
 import json
+import pyodbc
+import sqlalchemy as sa
 
-class RedShiftLoader():
+class VerticaLoader():
 
     def __init__(self, endpoint, dbname, port, user, password):
         self.cursor = None
-        self.engine_string = "postgresql+psycopg2://%s:%s@%s:%d/%s" % (
-            user, password, endpoint, port, dbname)
+        self.endpoint = endpoint
+        self.dbname = dbname
+        self.port = port
+        self.user = user
+        self.password = password
+        self.engine_string = "vertica+pyodbc://{user}:{password}@{endpoint}/{dbname}".format(user=user, password=password, endpoint=endpoint, dbname=dbname)
         self.SIGNIFICANT_RECORD_COUNT = 200
         self.SIGNIFICANT_PERCENTILE_ERROR = .15
 
     def Connect(self):
-        redshift = create_engine(self.engine_string)
-        self.cursor = redshift.connect()
+        #redshift = create_engine(self.engine_string)
+        #vertica = sa.create_engine(sa.engine.url.URL(
+        #    drivername='vertica+pyodbc',
+        #    username=self.user,
+        #    password='self.password',
+        #    host='self.endpoint',
+        #    database='dbname',
+        #    port=self.port
+        #    ))
+        print self.engine_string
+        vertica = sa.create_engine(self.engine_string + '?driver=/Library/Vertica/ODBC/lib/libverticaodbc.dylib')
+        print 'engine'
+        self.cursor = vertica.connect()
+        print 'cursor'
 
     def Query(self, cid, start_date='', end_date='', limit=500):
         self.test()
@@ -218,11 +236,12 @@ if __name__ == "__main__":
     import credentials
     import sys
 
-    cid = sys.argv[1]
-    num_days = int(sys.argv[2])
+    #cid = sys.argv[1]
+    #num_days = int(sys.argv[2])
 
-    tplog = RedShiftLoader(credentials.redshift_endpoint, credentials.redshift_dbname,
-                           credentials.redshift_port, credentials.redshift_user, credentials.redshift_pass)
+    tplog = VerticaLoader(credentials.vertica_endpoint, credentials.vertica_dbname,
+                            credentials.vertica_port, credentials.vertica_user, credentials.vertica_pass)
     #tplog.Query( 3521, datetime.date(2015, 11, 14), datetime.date(2015, 11, 15), 500000 )
     #tplog.Query( 3521, datetime.date(2015, 11, 13), datetime.date(2015, 11, 14), 500000 )
-    tplog.DailyJobs(cid, num_days)
+    tplog.Query( 3521, datetime.date(2015, 11, 15), datetime.date(2015, 11, 14), 10)
+    #tplog.DailyJobs(cid, num_days)
