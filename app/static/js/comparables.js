@@ -58,7 +58,7 @@ function hist_map(api_hist) {
         new_vals = [];
         total = 0;
         while (i < vals.length && total < .8) {
-            temp = {x: vals[i].x, y: Math.round(100 * vals[i].y)/100}
+            temp = {x: vals[i].x, y: 100 * Math.round(10000 * vals[i].y)/10000} //round math for percent of population to two decimal places
             new_vals.push(temp)
             total += vals[i].y
             i += 1;

@@ -1,7 +1,6 @@
 #!flask/bin/python
 from app import db, models, utils
 from collections import defaultdict
-from pprint import pprint
 from sqlalchemy import create_engine, text
 
 import datetime
@@ -11,34 +10,31 @@ import sqlalchemy as sa
 
 class VerticaLoader():
 
-    def __init__(self, endpoint, dbname, port, user, password):
+    def __init__(self, endpoint, dbname, port, user, password, endpoint_big=None):
         self.cursor = None
         self.endpoint = endpoint
+        self.endpoint_big = endpoint_big
         self.dbname = dbname
         self.port = port
         self.user = user
         self.password = password
-        self.engine_string = "vertica+pyodbc://{user}:{password}@{endpoint}/{dbname}".format(user=user, password=password, endpoint=endpoint, dbname=dbname)
         self.SIGNIFICANT_RECORD_COUNT = 200
         self.SIGNIFICANT_PERCENTILE_ERROR = .15
 
+    def dbCidMap(self):
+        bigs = ['91', '90', '30', '3524']
+        if self.cid in bigs:
+            return self.endpoint_big
+        else:
+            return self.endpoint
+
     def Connect(self):
-        #redshift = create_engine(self.engine_string)
-        #vertica = sa.create_engine(sa.engine.url.URL(
-        #    drivername='vertica+pyodbc',
-        #    username=self.user,
-        #    password='self.password',
-        #    host='self.endpoint',
-        #    database='dbname',
-        #    port=self.port
-        #    ))
-        print self.engine_string
+        self.engine_string = "vertica+pyodbc://{user}:{password}@{endpoint}/{dbname}".format(user=self.user, password=self.password, endpoint=self.dbCidMap(), dbname=self.dbname)
         vertica = sa.create_engine(self.engine_string + '?driver=/Library/Vertica/ODBC/lib/libverticaodbc.dylib')
-        print 'engine'
         self.cursor = vertica.connect()
-        print 'cursor'
 
     def Query(self, cid, start_date='', end_date='', limit=500):
+        self.cid = cid
         self.test()
 
         formatter = self.queryScrub({
@@ -48,17 +44,17 @@ class VerticaLoader():
             'cid': cid
             })
 
-        print formatter
         self.currentStart = formatter['start_date']
 
-        rs_query = utils.redshift_query.format(**formatter)
-        self.rows = self.cursor.execute(text(rs_query)).fetchall()
+        vertica_query = utils.redshift_query.format(**formatter)
+        self.rows = self.cursor.execute(text(vertica_query)).fetchall()
         print 'query complete', "%i rows returned" % len(self.rows)
 
     def queryScrub(self, details):
         ''' some day this would check for whether a user had access to this cid '''
         self.cid = details['cid']
 
+        # default to grabbing yesterday's data
         scrubbed = {
             'cid': details['cid'],
             'start_date': details.get('start_date', datetime.date.today() - datetime.timedelta(days=1)).isoformat(),
@@ -74,7 +70,6 @@ class VerticaLoader():
         for row in self.rows:
             hash_string = "&".join(["=".join([key, row[key]]) for key in id_keys])
             tpclass = row['class']
-            # hash_info = hash_grouped.get(hash_string, {})
             exists = hash_grouped.get(hash_string, False)
             if not exists:
                 hash_info = {'id':{}, 'metrics':{}, 'count': 0}
@@ -140,8 +135,12 @@ class VerticaLoader():
         if not acc_sizes and byp_sizes:
             checks=[False]
         else:
-            checks = [((byp_sizes[perc] - acc_sizes[perc]) / byp_sizes[perc]) <
-                  self.SIGNIFICANT_PERCENTILE_ERROR for perc in ['size_25', 'size_50', 'size_75']]
+            try:
+                checks = [((byp_sizes[perc] - acc_sizes[perc]) / byp_sizes[perc]) <
+                    self.SIGNIFICANT_PERCENTILE_ERROR for perc in ['size_25', 'size_50', 'size_75']]
+            except:
+                print "line 133", comparable_metrics
+                checks = [False]
         return all(checks)
 
     def significantChecks(self, hash_grouped):
@@ -211,6 +210,7 @@ class VerticaLoader():
         return reduced_comparables
 
     def LoadToProduction(self):
+        print "Adding {} comparables to reduced_row".format(len(self.comparables))
         for entry in self.comparables:
             rr = models.ReducedRow(**entry)
             db.session.add(rr)
@@ -218,6 +218,7 @@ class VerticaLoader():
 
     def DailyJobs(self, cid, num_days, end=datetime.datetime.now()):
         ''' create a set of jobs to process for daily aggregation '''
+        print "Grabbing the last {} days for cid {}".format(num_days, cid)
         today = datetime.date.today()
         dates = [ (today - datetime.timedelta(days=n), today - datetime.timedelta(days=n+1)) for n in range(0, num_days) ]
 
@@ -236,12 +237,10 @@ if __name__ == "__main__":
     import credentials
     import sys
 
-    #cid = sys.argv[1]
-    #num_days = int(sys.argv[2])
+    cid = sys.argv[1]
+    num_days = int(sys.argv[2])
 
     tplog = VerticaLoader(credentials.vertica_endpoint, credentials.vertica_dbname,
-                            credentials.vertica_port, credentials.vertica_user, credentials.vertica_pass)
-    #tplog.Query( 3521, datetime.date(2015, 11, 14), datetime.date(2015, 11, 15), 500000 )
-    #tplog.Query( 3521, datetime.date(2015, 11, 13), datetime.date(2015, 11, 14), 500000 )
-    tplog.Query( 3521, datetime.date(2015, 11, 15), datetime.date(2015, 11, 14), 10)
-    #tplog.DailyJobs(cid, num_days)
+                            credentials.vertica_port, credentials.vertica_user, credentials.vertica_pass, endpoint_big  = credentials.vertica_endpoint_big)
+
+    tplog.DailyJobs(cid, num_days)
