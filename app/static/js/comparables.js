@@ -92,6 +92,9 @@ function addHist(id, data) {
             var width = $(id).outerWidth(),
                 height = 240; 
 
+            console.log(width)
+            console.log(height)
+
             var chart = nv.models.lineChart()
                 //.width(width)
                 .height(240)

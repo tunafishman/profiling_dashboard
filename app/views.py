@@ -128,6 +128,8 @@ def gains(cid):
         else:
             subset = 'total'
 
+        print subset
+
         temp[subset]['boltzmann_factor'] += float(entry.gain) * float(entry.num_comparable_records)
         temp[subset]['total'] += float(entry.num_comparable_records)
 
