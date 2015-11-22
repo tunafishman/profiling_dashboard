@@ -7,6 +7,7 @@ class ReducedRow(db.Model):
     network = db.Column(db.String(10))
     geo = db.Column(db.String(20))
     url_domain = db.Column(db.String(200))
+    url_schema = db.Column(db.String(50))
     size = db.Column(db.String(10))
     content_type = db.Column(db.String(70))
     comparability = db.Column(db.Boolean, default=False)

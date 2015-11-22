@@ -28,7 +28,8 @@ api_breakouts = {
     'geo': 'geo', 
     'url_domain': 'url_domain', 
     'size': 'size', 
-    'content_type': 'content_type'
+    'content_type': 'content_type',
+    'url_schema': 'url_schema'
     }
 
 def queryFilter(base_query, selector_string):

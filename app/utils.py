@@ -6,6 +6,7 @@ redshift_query = \
          partition4 as content_type,
          partition5 as size,
          partition6 as bin,
+         partition7 as url_schema,
          count(*) AS bin_count,
          class,
          max(perc25_fbu)   AS perc25_fbu,
@@ -129,8 +130,8 @@ FROM (
                                     WHEN dcu < 4000 THEN '4000'
                                     WHEN dcu >= 4000 THEN '>4000'
                            END AS partition6,
+                           url_schema as partition7,
                            class,
-
                            percentile_cont(0.25) within GROUP (ORDER BY size) OVER (partition BY network, geo, url_domain, content_type,
                            CASE
                                     WHEN size < 10000 THEN 'Small'
@@ -372,6 +373,7 @@ GROUP BY partition1,
          partition4,
          partition5,
          partition6,
+         partition7,
          class
 ORDER BY partition1,
          partition2,
