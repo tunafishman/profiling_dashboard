@@ -85,10 +85,7 @@ def comparables(cid):
     
     results_agg = defaultdict(int)
     for entry in filtered['results']:
-        if breakout:
-            subset = getattr(entry, breakout)
-        else:
-            subset = 'total'
+        subset = getattr(entry, breakout) if breakout else 'global'
 
         if comp:
             num = entry.num_comparable_records
@@ -123,10 +120,7 @@ def gains(cid):
     temp = defaultdict(lambda: defaultdict(float))
         
     for entry in filtered['results']:
-        if breakout:
-            subset = getattr(entry, breakout)
-        else:
-            subset = 'total'
+        subset = getattr(entry, breakout) if breakout else 'global'
 
         temp[subset]['boltzmann_factor'] += float(entry.gain) * float(entry.num_comparable_records)
         temp[subset]['total'] += float(entry.num_comparable_records)
