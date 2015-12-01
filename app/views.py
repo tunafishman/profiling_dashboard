@@ -6,6 +6,28 @@ import copy
 import json
 import time
 
+class Timer():
+
+    def __init__(self, name, to_log=False):
+        self.start = None
+        self.end = None
+        self.name = name
+        self.to_log = to_log
+        self.logfile = 'logs.txt'
+
+    def Start(self):
+        self.start = time.time()
+
+    def End(self):
+        self.end = time.time()
+        self.elapsed = self.end - self.start
+
+    def Printer(self):
+        return "{} - {} completed in {} ms\n".format(self.start, self.name, self.elapsed)
+
+    def Log(self):
+        with open(self.logfile, 'a') as f:
+            f.write(self.Printer())
 
 ### pages ###
 @app.route('/')
@@ -101,7 +123,8 @@ def comparables(cid):
 
 @app.route('/api/v1/<cid>/gains/')
 def gains(cid):
-    starttime = time.time()
+    gain_timer = Timer('gains request')
+    gain_timer.Start()
 
     details = request.args
     breakout = details.get('breakout', '')
@@ -110,17 +133,24 @@ def gains(cid):
         return "Break not my api"
     else:
         breakout = api_breakouts[breakout]
-
+    
+    query_timer = Timer('gains query')
+    query_timer.Start()
     base = models.ReducedRow.query.filter_by(cid=cid).filter_by(comparability="True")
     filtered = queryFilter(base, details.get('selector', ''))
-    
+    query_timer.End()
+    query_timer.Log()
+
     if filtered.get('error', False):
         return jsonify(filtered)
     
     temp = defaultdict(lambda: defaultdict(float))
         
+    gain_massage = Timer('gains coalesce')
+    gain_massage.Start()
     for entry in filtered['results']:
         subset = getattr(entry, breakout) if breakout else 'global'
+        print entry.cid, entry.comparability, entry.gain, entry.num_comparable_records, entry.network, entry.geo, entry.size, entry.url_domain
 
         temp[subset]['boltzmann_factor'] += float(entry.gain) * float(entry.num_comparable_records)
         temp[subset]['total'] += float(entry.num_comparable_records)
@@ -137,8 +167,11 @@ def gains(cid):
             'portion': temp[tpslice]['total'] / temp['total']
             }
         to_return.append(temp_return)
-    totaltime = time.time() - starttime
-    print totaltime
+    gain_massage.End()
+    gain_massage.Log()
+
+    gain_timer.End()
+    gain_timer.Log()
     return jsonify({'key': 'gains', 'values': to_return})
 
 @app.route('/api/v1/<cid>/histogram/')
