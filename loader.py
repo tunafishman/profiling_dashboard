@@ -25,14 +25,12 @@ class VerticaLoader():
         bigs = ['91', '90', '30', '3524']
         if self.cid in bigs:
             return "SQLEngBig"
-            #return self.endpoint_big
         else:
             return "SQLEng"
-            #return self.endpoint
 
     def Connect(self):
         self.engine_string = "vertica+pyodbc://{user}:{password}@{vertica}".format(user=self.user, password=self.password, vertica = self.dbCidMap())#, dbname=self.dbname)
-        vertica = sa.create_engine(self.engine_string) # + '?driver=/Library/Vertica/ODBC/lib/libverticaodbc.dylib')
+        vertica = sa.create_engine(self.engine_string)
         self.cursor = vertica.connect()
 
     def Query(self, cid, start_date='', end_date='', limit=500):

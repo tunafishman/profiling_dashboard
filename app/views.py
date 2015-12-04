@@ -54,7 +54,7 @@ api_breakouts = {
     }
 
 def queryFilter(base_query, selector_string):
-    ''' this takes in a selector from a GET param and returns records that meet the selectors '''
+    ''' this takes in a selector and returns records that meet the selectors '''
     fq = base_query
     selector_types, error = utils.parseSelector(selector_string)
     if error:
@@ -74,7 +74,6 @@ def queryFilter(base_query, selector_string):
             fq = fq.filter(getattr(models.ReducedRow, expr[0]).like("%%{}%%".format(expr[1])))
 
     for expr in selector_types[' in ']:
-        print expr, type(expr[1])
         if 'not' in expr[0]:
             expr[0] = expr[0].split('not')[0].strip()
             fq = fq.filter(~getattr(models.ReducedRow, expr[0]).in_(expr[1]))
@@ -138,6 +137,7 @@ def gains(cid):
     query_timer.Start()
     base = models.ReducedRow.query.filter_by(cid=cid).filter_by(comparability="True")
     filtered = queryFilter(base, details.get('selector', ''))
+    print "query returned {} records".format(len(filtered))
     query_timer.End()
     query_timer.Log()
 
