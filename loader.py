@@ -1,4 +1,4 @@
-#!flask/bin/python
+#!flask-venv/bin/python
 from app import db, models, utils
 from collections import defaultdict
 from sqlalchemy import create_engine, text
