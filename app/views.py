@@ -3,6 +3,7 @@ from collections import Counter, defaultdict
 from flask import jsonify, render_template, request
 
 import copy
+import customers
 import json
 import time
 
@@ -33,7 +34,9 @@ class Timer():
 @app.route('/')
 @app.route('/index')
 def index():
-    return render_template("hero-thirds.html")
+    cidlist = cids()
+    print cidlist
+    return render_template("hero-thirds.html", customers = cidlist, subsets = api_breakouts.keys(), api_url = app.config['API_URL'])
 
 @app.route('/test')
 def test():
@@ -81,6 +84,12 @@ def queryFilter(base_query, selector_string):
             fq = fq.filter(getattr(models.ReducedRow, expr[0]).in_(expr[1]))
 
     return {'results': fq.all()}
+
+def cids():
+    base = models.db.session.query(models.ReducedRow.cid).distinct().all()
+    cids = sorted([item.cid for item in base])
+    cidlist = [{'name': customers.cidToName.get(cid, cid), 'cid':cid} for cid in cids]
+    return cidlist
 
 @app.route('/api/v1/<cid>/comparables/')
 def comparables(cid):

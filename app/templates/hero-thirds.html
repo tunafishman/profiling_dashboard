@@ -37,7 +37,18 @@
   </div>
 
   <div class="container-fluid">
-      <input id="cid" type="text" /><input id="selector" type="text" name="selector" /><input id="breakout" type="text" /><input id="fetch" type="button" value="Run" />
+    <select id="cid">
+      {% for item in customers %}
+      <option value={{ item.cid }}>{{ item.name }}</option>
+      {% endfor %}
+    </select>
+    <input id="selector" type="text" name="selector" />
+    <select id="breakout">
+      {% for subset in subsets %}
+      <option value={{ subset }}>{{ subset }}</option>
+      {% endfor %}
+    </select>
+    <input id="fetch" type="button" value="Run" />
     <div class="row">
       <div class="col-sm-8">
         <div class="chart-wrapper">
@@ -167,6 +178,7 @@
 
   <script type="text/javascript" src="static/libs/holder/holder.js"></script>
   <script>
+    var api_base = "{{ api_url }}";
     Holder.add_theme("white", { background:"#fff", foreground:"#a7a7a7", size:10 });
     function makeGraphs() {
         selector = $( "#selector" ).val()
