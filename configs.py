@@ -7,7 +7,7 @@ class Config(object):
 
 class Production(object):
     DEBUG = False
-    SERVER_NAME = "0.0.0.0:5001"
-    API_URL = "web-01"
+    SERVER_NAME = "web-01:5001"
+    API_URL = "web-01:5001"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2://comparables"
+    SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2:///comparables"
