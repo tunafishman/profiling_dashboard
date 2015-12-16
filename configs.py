@@ -9,5 +9,6 @@ class Production(object):
     DEBUG = False
     SERVER_NAME = "web-01:5001"
     API_URL = "http://web-01:5001/api/v1"
+    HOST = "0.0.0.0"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2:///comparables"
