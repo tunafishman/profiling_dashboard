@@ -34,9 +34,7 @@ class Timer():
 @app.route('/')
 @app.route('/index')
 def index():
-    cidlist = cids()
-    print cidlist
-    return render_template("hero-thirds.html", customers = cidlist, subsets = api_breakouts.keys(), api_url = app.config['API_URL'])
+    return render_template("hero-thirds.html", customers = cids(), subsets = api_breakouts.keys(), api_url = app.config['API_URL'])
 
 @app.route('/test')
 def test():
@@ -146,20 +144,20 @@ def gains(cid):
     query_timer.Start()
     base = models.ReducedRow.query.filter_by(cid=cid).filter_by(comparability="True")
     filtered = queryFilter(base, details.get('selector', ''))
-    print "query returned {} records".format(len(filtered))
     query_timer.End()
     query_timer.Log()
 
     if filtered.get('error', False):
         return jsonify(filtered)
-    
+
+    print "query returned {} records".format(len(filtered['results']))
+   
     temp = defaultdict(lambda: defaultdict(float))
         
     gain_massage = Timer('gains coalesce')
     gain_massage.Start()
     for entry in filtered['results']:
         subset = getattr(entry, breakout) if breakout else 'global'
-        print entry.cid, entry.comparability, entry.gain, entry.num_comparable_records, entry.network, entry.geo, entry.size, entry.url_domain
 
         temp[subset]['boltzmann_factor'] += float(entry.gain) * float(entry.num_comparable_records)
         temp[subset]['total'] += float(entry.num_comparable_records)
@@ -226,7 +224,6 @@ def histogram(cid):
 def lifecycle(cid):
     starttime = time.time()
     details = request.args
-    print type(details), details
     selector = details.get('selector', '')
     breakout = details.get('breakout', '')
     comparable_query = request.args.get('comparable', 'false').lower() == 'true'
@@ -278,7 +275,6 @@ def lifecycle(cid):
 
     to_return = []
     for subset in results_agg:
-        print subset
         percentiles = {'count':0}
         for tpclass in results_agg[subset]:
             percentiles.update({tpclass: {}})
@@ -290,7 +286,6 @@ def lifecycle(cid):
                         percentiles[tpclass][measure][key] = results_agg[subset][tpclass][measure][key] / results_agg[subset][tpclass][measure][key + "_total"]
                     except:
                         continue
-                        print results_agg[subset][tpclass]
 
         to_return.append({subset: percentiles})
 
