@@ -178,7 +178,7 @@
 
   <script type="text/javascript" src="static/libs/holder/holder.js"></script>
   <script>
-    var api_base = "{{ api_url }}";
+    window.base_api = "{{ api_url }}";
     Holder.add_theme("white", { background:"#fff", foreground:"#a7a7a7", size:10 });
     function makeGraphs() {
         selector = $( "#selector" ).val()

@@ -1,9 +1,7 @@
 function api_query(cid, endpoint, args) {
-    base_url = "http://localhost:5001/api/v1/"
-
     if (!(endpoint == 'gains' || endpoint == 'histogram' || endpoint == 'comparables' || endpoint == 'lifecycle')) { return {} }
 
-    api_url = base_url + cid + '/' + endpoint + '/'
+    api_url = [window.base_api, cid, endpoint].join('/')
     xhr = $.ajax({
         url: api_url,
         type: "get",
