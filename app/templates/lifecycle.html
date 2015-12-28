@@ -1,107 +1,113 @@
 <html>
 <head>
-    <title>Something Cool</title>
-    <link rel="stylesheet" type="text/css" href="static/libs/nvd3/css/nv.d3.css" />
-    <script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
-    <script src="static/libs/nvd3/js/nvd3.js"></script>
+  <title>Something Cool</title>
+  <link rel="stylesheet" type="text/css" href="static/libs/nvd3/css/nv.d3.css" />
+  <script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
+  <script src="static/libs/nvd3/js/nvd3.js"></script>
 </head>
 <body>
-    <input id="cid" type="text" /><input id="selector" type="text" name="selector"/><input id="breakout" type="text" /><input id="fetch" type="button" value="Run" />
-    <div id="lifecycle">
-        <svg></svg>
-    </div>
+  <select id="cid">
+    {% for item in customers %}
+    <option value={{ item.cid }}>{{ item.name }}</option>
+    {% endfor %}
+  </select>
+  <input id="selector" type="text" name="selector"/>
+  <input id="fetch" type="button" value="Run" />
+  <div id="lifecycle">
+    <svg></svg>
+  </div>
 
-    <script type="text/javascript" src="static/libs/jQuery/js/jquery-1.11.3.min.js"></script>
-    <script src="static/js/comparables.js"></script>
+  <script type="text/javascript" src="static/libs/jQuery/js/jquery-1.11.3.min.js"></script>
+  <script src="static/js/comparables.js"></script>
 
-    <script>
-        window.base_api = "{{ api_url }}";
-        function makeLife(id, passed_data) {
-            var id = id + " svg"
-            
-            nv.addGraph(function() {
-                var chart = nv.models.multiBarHorizontalChart()
-                    .width(800)
-                    .height(500)
-                    .x(function(d) { return d.label })
-                    .y(function(d) { return d.value })
-                    .margin({top: 30, right: 20, bottom: 50, left: 175})
-                    .showValues(true)           //Show bar value next to each bar.
-                    //.tooltips(true)             //Show tooltips on hover.
-                    .showControls(false)        //Allow user to switch between "Grouped" and "Stacked" mode.
-                    .stacked(true)
+  <script>
+    window.base_api = "{{ api_url }}";
+    function makeLife(id, passed_data) {
+      var id = id + " svg"
+      
+      nv.addGraph(function() {
+        var chart = nv.models.multiBarHorizontalChart()
+          .width(800)
+          .height(500)
+          .x(function(d) { return d.label })
+          .y(function(d) { return d.value })
+          .margin({top: 30, right: 20, bottom: 50, left: 175})
+          .showValues(true)       //Show bar value next to each bar.
+          //.tooltips(true)       //Show tooltips on hover.
+          .showControls(false)    //Allow user to switch between "Grouped" and "Stacked" mode.
+          .stacked(true)
 
-                console.log(passed_data)
+        console.log(passed_data)
 
-                d3.select(id)
-                    .datum(passed_data)
-                    .transition().duration(350)
-                    .call(chart);
+        d3.select(id)
+          .datum(passed_data)
+          .transition().duration(350)
+          .call(chart);
 
-                return chart;
-            });
-        }
-        
-        function getLife(cid, selector, breakout) {
-          
-          api_query(cid, 'lifecycle', {'comparable': true, 'selector':selector, 'breakout': breakout}).done(function(api_data) {
-            console.log(api_data);
-            data = {'fbu': {'key': 'fbu', 'values': []}, 'dcu': {'key': 'dcu', 'values': []}}
-            to_return = []
-            for (subset in api_data.percentiles) {
-              console.log(subset);
-              percs = ['perc75', 'perc50', 'perc25']
-              for (perc in percs) {
-                console.log(percs[perc])
-                for (label in api_data.percentiles[subset]) { //this should just be one key
-                  console.log(label)
-                  classes = ['byp', 'acc']
-                  for (tpclass in classes) {
-                    tpc = classes[tpclass]
-                    measures = ['fbu', 'dcu']
-                    for (measure in measures) {
-                      mes = measures[measure]
-                      key = percs[perc] + "_" + mes
-                      temp = {}
-                      temp.label = tpc + " " + percs[perc];
-                      fbu = api_data.percentiles[subset][label][tpc].fbu[percs[perc] + "_fbu"]
-                      if (mes == 'fbu') {
-                        temp.value = fbu
-                      } else {
-                        dcu = api_data.percentiles[subset][label][tpc].dcu[key] - fbu
-                        temp.value = dcu
-                      }
-
-                      data[mes].values.push(temp)
-                      console.log(temp)
-                      console.log(data)
-                      //debugger;
-                    }
-                  }
-                }
-              }
-            to_return.push(data.fbu);
-            to_return.push(data.dcu);
-            console.log(to_return)
+        return chart;
+      });
+    }
+    
+    function getLife(cid, selector, breakout) {
+      
+      api_query(cid, 'lifecycle', {'comparable': true, 'selector':selector, 'breakout': breakout}).done(function(api_data) {
+      console.log(api_data);
+      data = {'fbu': {'key': 'fbu', 'values': []}, 'dcu': {'key': 'dcu', 'values': []}}
+      to_return = []
+      for (subset in api_data.percentiles) {
+        console.log(subset);
+        percs = ['perc75', 'perc50', 'perc25']
+        for (perc in percs) {
+        console.log(percs[perc])
+        for (label in api_data.percentiles[subset]) { //this should just be one key
+          console.log(label)
+          classes = ['byp', 'acc']
+          for (tpclass in classes) {
+          tpc = classes[tpclass]
+          measures = ['fbu', 'dcu']
+          for (measure in measures) {
+            mes = measures[measure]
+            key = percs[perc] + "_" + mes
+            temp = {}
+            temp.label = tpc + " " + percs[perc];
+            fbu = api_data.percentiles[subset][label][tpc].fbu[percs[perc] + "_fbu"]
+            if (mes == 'fbu') {
+            temp.value = fbu
+            } else {
+            dcu = api_data.percentiles[subset][label][tpc].dcu[key] - fbu
+            temp.value = dcu
             }
-          makeLife("#lifecycle", to_return);
-          })
+
+            data[mes].values.push(temp)
+            console.log(temp)
+            console.log(data)
+            //debugger;
+          }
+          }
         }
+        }
+      to_return.push(data.fbu);
+      to_return.push(data.dcu);
+      console.log(to_return)
+      }
+      makeLife("#lifecycle", to_return);
+      })
+    }
 
-        function doit() {
-          selector = $( "#selector" ).val()
-          breakout = $( "#breakout" ).val()
-          cid = $( "#cid" ).val()
+    function doit() {
+      selector = $( "#selector" ).val()
+      breakout = $( "#breakout" ).val()
+      cid = $( "#cid" ).val()
 
-          getLife( cid, selector, breakout );
-        };
-        $( window ).load( function () {
-          doit();
-        });
-        $( "#fetch" ).click( function() { 
-          doit(); 
-        });
+      getLife( cid, selector, breakout );
+    };
+    $( window ).load( function () {
+      doit();
+    });
+    $( "#fetch" ).click( function() { 
+      doit(); 
+    });
 
-    </script>
+  </script>
 </body>
 </html>
