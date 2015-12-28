@@ -42,7 +42,7 @@ def test():
 
 @app.route('/life')
 def life():
-    return render_template("lifecycle.html")
+    return render_template("lifecycle.html", api_url = app.config['API_URL'])
 
 ### API endpoints ###
 api_breakouts = {
