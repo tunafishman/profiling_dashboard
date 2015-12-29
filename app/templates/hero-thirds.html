@@ -195,12 +195,25 @@
         makePopulation(population_div, cid, selector)
         makeBreakout(breakout_div, cid, selector, breakout)
     };
+    
     $( window ).load( function () {
-        cid = $( "#cid" ).val();
-        if (cid) { makeGraphs();}
-    });
-    $( "#fetch" ).click( function() {
+        
+      {% if page_state.cid %}
+      $("#cid").val("{{ page_state.cid }}");
+      {% endif %}
 
+      {% if page_state.selector %}
+      $("#selector").val("{{ page_state.selector }}");
+      {% endif %}
+
+      {% if page_state.breakout %}
+      $("#breakout").val("{{ page_state.breakout }}");
+      {% endif %}
+
+      makeGraphs();
+    });
+
+    $( "#fetch" ).click( function() {
         makeGraphs(); 
     });
   </script>
