@@ -34,11 +34,24 @@ class Timer():
 @app.route('/')
 @app.route('/index')
 def index():
-    return render_template("hero-thirds.html", customers = cids(), subsets = api_breakouts.keys(), api_url = app.config['API_URL'])
+    details = request.args
+    page_state = {
+        "cid": details.get("cid", False),
+        "selector": details.get("selector", False),
+        "breakout": details.get("breakout", False)
+    }
+    return render_template("hero-thirds.html", customers = cids(), subsets = api_breakouts.keys(), api_url = app.config['API_URL'], page_state = page_state)
 
 @app.route('/test')
 def test():
-    return render_template("test.html")
+    details = request.args
+    page_state = {
+        "cid": details.get('cid', False),
+        "selector": details.get('selector', False),
+        "breakout": details.get('breakout', False)
+        }
+    print page_state
+    return render_template("test.html", page_state = page_state, customers = cids(), subsets = api_breakouts.keys())
 
 @app.route('/life')
 def life():
