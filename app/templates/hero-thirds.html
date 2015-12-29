@@ -185,6 +185,8 @@
         breakout = $( "#breakout" ).val()
         cid = $( "#cid" ).val()
 
+        window.history.pushState(null, 'new graphs', '?cid='+cid+'&selector='+selector+'&breakout='+breakout);
+        
         population_div = "#grid-1-1"
         gains_div = "#grid-1-2"
         breakout_div = "#grid-2-3"
@@ -193,24 +195,12 @@
         makePopulation(population_div, cid, selector)
         makeBreakout(breakout_div, cid, selector, breakout)
     };
-
     $( window ).load( function () {
-      {% if page_state.cid %}
-      $("#cid").val("{{ page_state.cid }}");
-      {% endif %}
-
-      {% if page_state.selector %}
-      $("#selector").val("{{ page_state.selector }}");
-      {% endif %}
-
-      {% if page_state.breakout %}
-      console.log("{{ page_state.breakout }}");
-      $("#breakout").val("{{ page_state.breakout }}");
-      {% endif %}
-      
-       makeGraphs();
+        cid = $( "#cid" ).val();
+        if (cid) { makeGraphs();}
     });
-    $( "#fetch" ).click( function() { 
+    $( "#fetch" ).click( function() {
+
         makeGraphs(); 
     });
   </script>
