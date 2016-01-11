@@ -14,7 +14,22 @@
     <option value={{ item.cid }}>{{ item.name }}</option>
     {% endfor %}
   </select>
-  <input id="selector" type="text" name="selector" />
+  <div id="selectors">
+    <div class="segmentationPhrase">
+      <select class="segment">
+        <option value="network">Network</option>
+        <option value="geo">Geo</option>
+      </select>
+      <button id="filter">></button>
+    </div>
+      <!-- <select class="logic">
+        <option value="=">=</option>
+        <option value="not =">!=</option>
+        <option value="like">like</option>
+      </select>
+      <input class="values" type="text" />
+      -->
+  </div>
   <select id="breakout">
     {% for subset in subsets %}
     <option value={{ subset }}>{{ subset }}</option>
@@ -41,6 +56,17 @@
     $("#breakout").val("{{ page_state.breakout }}");
     {% endif %}
   });
+  $("#filter").click( function() {
+    $("#filter").css("display", "none");
+    s = $("#selectors");
+    ss = s.children();
+    
+    $(s.children()[ss.length - 1]).append("<input type='text'>");
+    $(s).append("<div class='segmentationPhrase'><button id='newSeg'>+</button></div>");
+    $("#newSeg").click( function() {
+      $(s.children()[ss.length]).html();
+    })
+  })
 </script>
 </body>
 </html>

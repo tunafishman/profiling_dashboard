@@ -53,6 +53,10 @@ def test():
     print page_state
     return render_template("test.html", page_state = page_state, customers = cids(), subsets = api_breakouts.keys())
 
+@app.route('/segboxes')
+def segboxes():
+    return render_template("segboxes.html")
+
 @app.route('/life')
 def life():
     return render_template("lifecycle.html", customers = cids(), api_url = app.config['API_URL'])
