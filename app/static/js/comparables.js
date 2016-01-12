@@ -39,7 +39,8 @@ function makeBreakout( id, cid, selector, breakout) {
 function breakout_map(api_breakout) {
     plottable = []
     temp = {key: api_breakout.key, values: api_breakout.values.sort(function(a, b) { return a.label.localeCompare(b.label)})}
-    console.log(temp)
+    console.log("HELLO");
+    console.log(api_breakout);
     for ( datapoint in temp.values ) {
         temp.values[datapoint].value *= 100
     };
@@ -74,7 +75,8 @@ function gain_map(api_gain) {
     var series = [];
 
     for (subset in api_gain.gains) {
-        api_gain.gains[subset].value *= 100
+        api_gain.gains[subset].value *= 100;
+        console.log( subset + ' has significance of: ' + api_gains[subset] );
     }
 
     Object.keys(api_gain).map(function(label, i) {
@@ -143,7 +145,8 @@ function addBreakout(id, data) {
                 .x(function(d) { return d.label })    //Specify the data accessors.
                 .y(function(d) { return d.value })
                 .staggerLabels(true)    //Too many bars and not enough room? Try staggering labels.
-                .tooltips(false)        //Don't show tooltips
+                .tooltips(true)
+                .tooltipContent(function(key, y, e, graph) { return 'Significance: '+ 100*Math.round(10000*key.data.significance)/10000 })
                 .showValues(true)       //...instead, show the bar value right on top of each bar.
                 ;
            

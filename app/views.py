@@ -163,7 +163,7 @@ def gains(cid):
     if filtered.get('error', False):
         return jsonify(filtered)
 
-    print "query returned {} records".format(len(filtered['results']))
+    print "query returned {} comparable segments".format(len(filtered['results']))
    
     temp = defaultdict(lambda: defaultdict(float))
         
@@ -172,19 +172,24 @@ def gains(cid):
     for entry in filtered['results']:
         subset = getattr(entry, breakout) if breakout else 'global'
 
+        temp[subset]['comp_records'] += float(entry.num_comparable_records)
+        temp[subset]['total_records'] += float(entry.num_total_records)
         temp[subset]['boltzmann_factor'] += float(entry.gain) * float(entry.num_comparable_records)
-        temp[subset]['total'] += float(entry.num_comparable_records)
 
-    total = sum([temp[subset]['total'] for subset in temp.keys()])  
-    print 'total records considered: {}'.format(total)
-    temp['total'] = total 
+    total_comp, total_num = sum([temp[subset]['comp_records'] for subset in temp.keys()]), sum([temp[subset]['total_records'] for subset in temp.keys()])
+    print 'total records considered: {}, total records comparable: {}, {}%'.format(total_num, total_comp, 100*total_comp/total_num)
+    temp['total_comp_records'] = total_comp
+    temp['total_num_records'] = total_num
+
+    print temp
 
     to_return = []
-    for tpslice in filter(lambda x: x not in ['total'], temp.keys()):
+    for tpslice in filter(lambda x: x not in ['total_comp_records', 'total_num_records'], temp.keys()):
         temp_return = {
             'label': tpslice,
-            'value': temp[tpslice]['boltzmann_factor'] / temp[tpslice]['total'],
-            'portion': temp[tpslice]['total'] / temp['total']
+            'value': temp[tpslice]['boltzmann_factor'] / temp[tpslice]['comp_records'],
+            'portion': temp[tpslice]['comp_records'] / temp['total_comp_records'],
+            'significance': temp[tpslice]['comp_records'] / temp[tpslice]['total_records']
             }
         to_return.append(temp_return)
     gain_massage.End()
