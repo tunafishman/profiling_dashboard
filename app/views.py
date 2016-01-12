@@ -181,8 +181,6 @@ def gains(cid):
     temp['total_comp_records'] = total_comp
     temp['total_num_records'] = total_num
 
-    print temp
-
     to_return = []
     for tpslice in filter(lambda x: x not in ['total_comp_records', 'total_num_records'], temp.keys()):
         temp_return = {
