@@ -1,21 +1,9 @@
 <html>
     <head>
         <title> test for segmentation and breakout boxes</title>
-        <style type="text/css">
-            .model {
-                white-space: nowrap
-            }
-            .sub {
-                display: inline-block
-            }
-            .description {
-                display: none
-            }
-        </style>
         <script type="text/javascript" src="static/libs/jQuery/js/jquery-1.11.3.min.js"></script>
         <link href="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.1/css/select2.min.css" rel="stylesheet" />
         <script src="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.1/js/select2.min.js"></script>
-        <script type="text/javascript" src="static/libs/json-editor/jsoneditor.js"></script>
     </head>
     <body>
         <script>
@@ -60,11 +48,19 @@
 //                        $(".segment").on("select2:select", function(e) {console.log(e.params.data.text)})
                     }
 
-                var addListener = function(element, index) {
+                var addListener = function(element, rowIndex) {
                         //loop through the html rows and add listeners
                         cls = element.attr('class')
-                        x = cls in listeners ? listeners[cls](index) : null;
-                        element.click(x);
+                        $.each(listeners, function(key, value) {
+                            if (cls.indexOf(key) > -1) {
+                                x = listeners[key](rowIndex)
+                                if (element.is('select')){
+                                    element.on("select2:select", x)
+                                } else {
+                                    element.click(x);
+                                }
+                            }
+                        });
                     }
 
                 var listeners = {
@@ -88,26 +84,44 @@
                                 rows.splice(rowId, 1)
                                 makeControls();
                             };
+                        },
+                        segment: function(rowId) {
+                            //register the selection
+                            return function(e) {
+                                rows[rowId].segment = e.params.data.id
+                            }
+                        },
+                        logic: function(rowId) {
+                            return function(e) {
+                                rows[rowId].logic = e.params.data.id
+                            }
                         }
+
                     };
 
-                var makeUseful = function(row, index) {
-                        $.map(row.children(), function(element, rowIndex) {
+                var makeUseful = function(row, rowNum) {
+                        $.map(row.children(), function(element, indexInRow) {
                             element = $(element)
-                            addListener(element, index);
                             if (element.is('select')) {
                                 if (element.attr('class') == 'segment') {
                                     element.select2({
                                         data: segments
                                     });
+                                    if (rows[rowNum].segment) {
+                                        element.val(rows[rowNum].segment).trigger("change")
+                                    }
                                 } else if (element.attr('class') == 'logic') {
                                     element.select2({
                                         data: logic
                                     });
+                                    if (rows[rowNum].logic) {
+                                        element.val(rows[rowNum].logic).trigger("change")
+                                    }
                                 } else {
                                     element.select2();
                                 }
                             } 
+                            addListener(element, rowNum);
                         })
                     };
 
