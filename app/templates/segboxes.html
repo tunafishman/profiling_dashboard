@@ -15,78 +15,97 @@
         <script type="text/javascript" src="static/libs/jQuery/js/jquery-1.11.3.min.js"></script>
         <link href="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.1/css/select2.min.css" rel="stylesheet" />
         <script src="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.1/js/select2.min.js"></script>
+        <script type="text/javascript" src="static/libs/json-editor/jsoneditor.js"></script>
     </head>
     <body>
-        <select id="wut">
-            <option value="butts">Butts</option>
-            <option value="not butts">NB</option>
-        </select>
         <script>
+            
+            var segControls = function(id) {
+                var container = id
+                var segments = [{id:0, text:"Network"}, {id:1, text:"Geos"}]
+                var rows = [{type: 'breakout', segment: segments[0]}]
+                var logic = [{id:0, text:"Equals", value: "="}, {id: 1, text:"Not Equal", value: "not ="}]
 
-            models = {};
-            models.breakout = "" +
-            "<div id='breakout' class='model'>" +
-                "<span class='description'>A drop down for selecting a segment</span>" +
-                "<select class='sub'>" +
-                    "<option value='network'>Network</option>" +
-                    "<option value='geo'>Geo</option>" +
-                "</select>" +
-                "<button id='expand' class='sub'>></button>" +
-            "</div>";
+                baseModels = {
+                    segment: "<select class='segment'></select>",
+                    logic: "<select class='logic'></select>",
+                    values: "<select class='value'></select>",
+                    expand: "<button class='expand'>></button>",
+                    newRow: "<button class='newRow'>+</button>",
+                    deleteRow: "<button class='deleteRow'>X</button>",
+                };
 
-            models.addLayer = "" +
-            "<div id='addLayer' class='model'>" +
-                "<span class='description'>A button to add a new line of breakout / filter</span>" +
-                "<button id='addLayer' class='sub'>+</button>" +
-            "</div>";
+                models = {
+                    breakout: baseModels.segment + baseModels.expand,
+                    filter: baseModels.segment + baseModels.logic + baseModels.values + baseModels.deleteRow,
+                    newRow: baseModels.newRow
+                };
 
-            models.filter = "" +
-            "<div id='filter' class='model'>" +
-                "<span class='description'>A way to specify individual subsets</span>" +
-                "<div id='logic' class='sub'>" +
-                    "<select>" +
-                        "<option value='='>equal to</option>" +
-                        "<option value='not ='>not equal to</option>" +
-                        "<option value='like'>like</option>" +
-                        "<option value='not like'>not like</option>" +
-                    "</select>" +
-                "</div>" +
-                "<div id='values' class='sub'>" +
-                    "<select>" +
-                        "<option value='3G'>3G</option>" +
-                        "<option value='Wifi'>Wifi</option>" +
-                    "</select>" +
-                "</div>" +
-            "</div>";
+                var makeControls = function() {
+                        div = $(id).empty()
+                        $.map(rows, function(item, index) {
+                            if (item.type in models) {
+                                row = $("<div/>")
+                                        .append(models[item.type])
+                                        .attr('class', item.type)
+                            }
+                            row.attr('id', "segControl-" + index);
+                            div.append(row);
+                        });
+                        $.map($(id).children(), function(row, index) {makeUseful($(row), index);});
+//                        $(".segment").on("select2:select", function(e) {console.log(e.params.data.text)})
+                    }
 
-            newRow = function() {
-                $("#segControls").append(models.addLayer);
-                $("#addLayer").click(function() {
-                    $("#addLayer").remove();
-                    $("#segControls").append(models.breakout);
-                    $("#expand").click(expand);
-                });
-            };
+                var addListener = function(element, index) {
+                        //loop through the html rows and add listeners
+                        cls = element.attr('class')
+                        x = cls in listeners ? listeners[cls](index) : null;
+                        element.click(x);
+                    }
 
-            expand = function() {
-                $("#expand").remove();
-                s = $("#segControls");
-                ss = s.children()
+                var listeners = {
+                        expand: function(rowId) {
+                            return function() {
+                                rows[rowId].type='filter';
+                                rows.push({type: 'newRow'});
+                                makeControls();
+                            }
+                        },
+                        newRow: function(rowId) {
+                            //turn a + button into a breakout
+                            return function() {
+                                rows[rowId].type='breakout';
+                                makeControls();
+                            }
+                        },
+                        deleteRow: function(rowId) {
+                            //remove this row from the controls
+                            return function() {
+                                rows.splice(rowId, 1)
+                                makeControls();
+                            };
+                        }
+                    };
 
-                $(s.children()[ss.length - 1]).append(models.filter);
-                newRow();
-            };
+                var makeUseful = function(row, index) {
+                        $.map(row.children(), function(element, rowIndex) {
+                            element = $(element)
+                            addListener(element, index);
+                            if (element.is('select')) {
+                                element.select2();
+                            } 
+                        })
+                    };
 
-            $( window ).load( function() {
-                $("#segControls").append(models.breakout);
-                $("#expand").click(expand);
-                $("#wut").select2();
-            });
+                makeControls(); 
+                
+            }
 
         </script>
-
-
-        <div id='segControls'>
-        </div>
+        <div id='segControls'></div>
+           
+        <script>
+            s = segControls("#segControls")
+        </script>
     </body>
 </html>
