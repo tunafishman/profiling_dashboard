@@ -106,6 +106,30 @@ def cids():
     cidlist = [{'name': customers.cidToName.get(cid, cid), 'cid':cid} for cid in cids]
     return cidlist
 
+@app.route('/api/v1/<cid>/values')
+def values(cid):
+    details = request.args
+    segment = details.get('segment', False) #a segment is required to grab values
+    selector = details.get('selector', '')
+
+    if segment not in api_breakouts:
+        return "Break not my api"
+    else:
+        segment = api_breakouts[segment]
+
+    base = models.ReducedRow.query.filter_by(cid=cid)
+    filtered = queryFilter(base, selector)
+
+    if filtered.get('error', False):
+        return jsonify(filtered)
+
+    results_agg = defaultdict(int)
+    for entry in filtered['results']:
+        value = getattr(entry, segment)
+        results_agg[value] += entry.num_total_records
+
+    return jsonify({'segment': segment, 'values': dict(results_agg)})
+
 @app.route('/api/v1/<cid>/comparables/')
 def comparables(cid):
     details = request.args

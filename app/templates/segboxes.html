@@ -27,9 +27,9 @@
                 var logic = [{id:0, text:"Equals", value: "="}, {id: 1, text:"Not Equal", value: "not ="}]
 
                 baseModels = {
-                    segment: "<select class='segment'></select>",
-                    logic: "<select class='logic'></select>",
-                    values: "<select class='value'></select>",
+                    segment: "<select class='segment' style='width:30%'></select>",
+                    logic: "<select class='logic' style='width: 15%'></select>",
+                    values: "<select class='value' style='width: 50%'></select>",
                     expand: "<button class='expand'>></button>",
                     newRow: "<button class='newRow'>+</button>",
                     deleteRow: "<button class='deleteRow'>X</button>",
@@ -42,7 +42,11 @@
                 };
 
                 var makeControls = function() {
-                        div = $(id).empty()
+                        div = $(container).empty()
+                        if (rows.length == 1 && rows[0].type == 'newRow') {
+                            //take care of a weird state a user could get to by clicking buttons
+                            rows[0].type = 'breakout'
+                        };
                         $.map(rows, function(item, index) {
                             if (item.type in models) {
                                 row = $("<div/>")
@@ -52,7 +56,7 @@
                             row.attr('id', "segControl-" + index);
                             div.append(row);
                         });
-                        $.map($(id).children(), function(row, index) {makeUseful($(row), index);});
+                        $.map($(container).children(), function(row, index) {makeUseful($(row), index);});
 //                        $(".segment").on("select2:select", function(e) {console.log(e.params.data.text)})
                     }
 
@@ -92,7 +96,17 @@
                             element = $(element)
                             addListener(element, index);
                             if (element.is('select')) {
-                                element.select2();
+                                if (element.attr('class') == 'segment') {
+                                    element.select2({
+                                        data: segments
+                                    });
+                                } else if (element.attr('class') == 'logic') {
+                                    element.select2({
+                                        data: logic
+                                    });
+                                } else {
+                                    element.select2();
+                                }
                             } 
                         })
                     };
@@ -102,7 +116,7 @@
             }
 
         </script>
-        <div id='segControls'></div>
+        <div id='segControls' style="width: 75%"></div>
            
         <script>
             s = segControls("#segControls")
