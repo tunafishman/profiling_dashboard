@@ -10,10 +10,11 @@
             
             var segControls = function(id) {
                 var container = id
-                var segments = [{id:0, text:"Network"}, {id:1, text:"Geos"}]
-                var rows = [{type: 'breakout', segment: segments[0]}]
+                var segments = [{id:0, text:"Network", value:"network"}, {id:1, text:"Geos", value:"geo"}, {id:2, text:"Domain", value:"url_domain"}]
                 var logic = [{id:0, text:"Equals", value: "="}, {id: 1, text:"Not Equal", value: "not ="}]
 
+                var rows = [{type: 'breakout', segment: 0}] //initial state
+                
                 baseModels = {
                     segment: "<select class='segment' style='width:30%'></select>",
                     logic: "<select class='logic' style='width: 15%'></select>",
@@ -45,7 +46,7 @@
                             div.append(row);
                         });
                         $.map($(container).children(), function(row, index) {makeUseful($(row), index);});
-//                        $(".segment").on("select2:select", function(e) {console.log(e.params.data.text)})
+                        console.log(rows)
                     }
 
                 var addListener = function(element, rowIndex) {
@@ -66,7 +67,8 @@
                 var listeners = {
                         expand: function(rowId) {
                             return function() {
-                                rows[rowId].type='filter';
+                                rows[rowId].type = 'filter';
+                                rows[rowId].logic = 0;
                                 rows.push({type: 'newRow'});
                                 makeControls();
                             }
@@ -74,7 +76,8 @@
                         newRow: function(rowId) {
                             //turn a + button into a breakout
                             return function() {
-                                rows[rowId].type='breakout';
+                                rows[rowId].type = 'breakout';
+                                rows[rowId].segment = 0;
                                 makeControls();
                             }
                         },
@@ -125,8 +128,32 @@
                         })
                     };
 
+                var readControls = function() {
+                    selectors = new Array;
+                    breakout = new String;
+
+                    $.map(rows, function(row) {
+                        console.log(row)
+                        if (row.type == 'filter') {
+                            phrase = [segments[row.segment].value, logic[row.logic].value].join(" ");
+                            selectors.push(phrase)        
+                        } else if (row.type == 'breakout') {
+                            breakout = segments[row.segment].value
+                        } else {}
+                    })
+                    
+                    return {
+                        'selector': selectors.join(" and "),
+                        'breakout': breakout
+                    }
+
+                };
+
                 makeControls(); 
                 
+                return {
+                    read: readControls
+                } 
             }
 
         </script>
