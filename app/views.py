@@ -40,7 +40,7 @@ def index():
         "selector": details.get("selector", False),
         "breakout": details.get("breakout", False)
     }
-    return render_template("hero-thirds.html", customers = cids(), subsets = api_breakouts.keys(), api_url = app.config['API_URL'], page_state = page_state)
+    return render_template("webapp.html", customers = cids(), subsets = api_breakouts.keys(), api_url = app.config['API_URL'], page_state = page_state)
 
 @app.route('/test')
 def test():
@@ -55,7 +55,7 @@ def test():
 
 @app.route('/segboxes')
 def segboxes():
-    return render_template("segboxes.html")
+    return render_template("segboxes.html", customers = cids())
 
 @app.route('/life')
 def life():
@@ -128,7 +128,7 @@ def values(cid):
         value = getattr(entry, segment)
         results_agg[value] += entry.num_total_records
 
-    return jsonify({'segment': segment, 'values': dict(results_agg)})
+    return jsonify({'segment': segment, 'total': sum([x[1] for x in results_agg.items()]), 'values': dict(results_agg)})
 
 @app.route('/api/v1/<cid>/comparables/')
 def comparables(cid):

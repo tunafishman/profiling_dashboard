@@ -1,5 +1,5 @@
 function api_query(cid, endpoint, args) {
-    if (!(endpoint == 'gains' || endpoint == 'histogram' || endpoint == 'comparables' || endpoint == 'lifecycle')) { return {} }
+    if (!(endpoint == 'gains' || endpoint == 'histogram' || endpoint == 'comparables' || endpoint == 'lifecycle' || endpoint == 'values')) { return {} }
 
     api_url = [window.base_api, cid, endpoint].join('/')
     xhr = $.ajax({
@@ -173,14 +173,31 @@ function addBreakout(id, data) {
 }
 
 //UI Selectboxes
-var segControls = function(id) {
-    var container = id
-    var segments = [{id:0, text:"Network"}, {id:1, text:"Geos"}]
-    var rows = [{type: 'breakout', segment: segments[0]}]
-    var logic = [{id:0, text:"Equals", value: "="}, {id: 1, text:"Not Equal", value: "not ="}]
 
+var segControls = function(id, cid) {
+
+    var container = id
+    var customer = cid
+    var segments = [
+        {id:0, text:"Network", value:"network"},
+        {id:1, text:"Geo", value:"geo"}, 
+        {id:2, text:"Domain", value:"url_domain"},
+        {id:3, text: "Content", value:"content_type"},
+        {id:4, text: "Size", value:"size"}
+    ]
+    var logic = [
+        {id:0, text:"Equals", value: "="},
+        {id:1, text:"Not Equal", value: "not ="},
+        {id:2, text:"Like", value: "like"},
+        {id:3, text:"Not Like", value: "not like"},
+        {id:4, text:"In", value:"in"},
+        {id:5, text:"Not In", value:"not in"}
+    ]
+
+    var rows = [{type: 'breakout', segment: 0}] //initial state
+    
     baseModels = {
-        segment: "<select class='segment' style='width:30%'></select>",
+        segment: "<select class='segment' style='width:20%'></select>",
         logic: "<select class='logic' style='width: 15%'></select>",
         values: "<select class='value' style='width: 50%'></select>",
         expand: "<button class='expand'>></button>",
@@ -209,88 +226,166 @@ var segControls = function(id) {
                 row.attr('id', "segControl-" + index);
                 div.append(row);
             });
-            $.map($(container).children(), function(row, index) {makeUseful($(row), index);});
-//                        $(".segment").on("select2:select", function(e) {console.log(e.params.data.text)})
+            $.map($(container).children(), function(row, rowNum) { makeUseful(rowNum); });
         }
 
-    var addListener = function(element, rowIndex) {
-            //loop through the html rows and add listeners
-            cls = element.attr('class')
-            $.each(listeners, function(key, value) {
-                if (cls.indexOf(key) > -1) {
-                    x = listeners[key](rowIndex)
-                    if (element.is('select')){
-                        element.on("select2:select", x)
-                    } else {
-                        element.click(x);
-                    }
+    var addListener = function(element, rowNum) {
+        //loop through the html rows and add listeners
+        cls = element.attr('class')
+        $.each(listeners, function(targetClass, listener) {
+            //console.log('key', targetClass, 'value', listener, 'fix later')
+            if (cls.indexOf(targetClass) > -1) {
+                x = listener(rowNum)
+                if (element.is('select')){
+                    element.on("select2:select", x)
+                } else {
+                    element.click(x);
                 }
-            });
-        }
+            }
+        });
+    }
 
     var listeners = {
-            expand: function(rowId) {
+            expand: function(rowNum) {
                 return function() {
-                    rows[rowId].type='filter';
+                    rows[rowNum].type = 'filter';
+                    rows[rowNum].logic = 0;
                     rows.push({type: 'newRow'});
+                    loadValues(rowNum);
                     makeControls();
                 }
             },
-            newRow: function(rowId) {
+            newRow: function(rowNum) {
                 //turn a + button into a breakout
                 return function() {
-                    rows[rowId].type='breakout';
+                    rows[rowNum].type = 'breakout';
+                    rows[rowNum].segment = 0;
                     makeControls();
                 }
             },
-            deleteRow: function(rowId) {
+            deleteRow: function(rowNum) {
                 //remove this row from the controls
                 return function() {
-                    rows.splice(rowId, 1)
+                    rows.splice(rowNum, 1)
                     makeControls();
                 };
             },
-            segment: function(rowId) {
+            segment: function(rowNum) {
                 //register the selection
                 return function(e) {
-                    rows[rowId].segment = e.params.data.id
+                    rows[rowNum].segment = e.params.data.id
+                    loadValues(rowNum) //implicitly will call makeControls()
+                    //makeControls();
                 }
             },
-            logic: function(rowId) {
+            logic: function(rowNum) {
                 return function(e) {
-                    rows[rowId].logic = e.params.data.id
+                    rows[rowNum].logic = e.params.data.id
+                    makeControls();
+                }
+            },
+            value: function(rowNum) {
+                return function(e) {
+                    rows[rowNum].selectedVal = $("#segControl-" + rowNum + " .value").val()
                 }
             }
-
         };
 
-    var makeUseful = function(row, rowNum) {
-            $.map(row.children(), function(element, indexInRow) {
-                element = $(element)
-                if (element.is('select')) {
-                    if (element.attr('class') == 'segment') {
-                        element.select2({
-                            data: segments
-                        });
-                        if (rows[rowNum].segment) {
-                            element.val(rows[rowNum].segment).trigger("change")
-                        }
-                    } else if (element.attr('class') == 'logic') {
-                        element.select2({
-                            data: logic
-                        });
-                        if (rows[rowNum].logic) {
-                            element.val(rows[rowNum].logic).trigger("change")
-                        }
-                    } else {
-                        element.select2();
-                    }
-                } 
-                addListener(element, rowNum);
+    var loadValues = function(rowNum) {
+        //set a flag to disable interaction until values are loaded
+        rows[rowNum].wait = true
+
+        //grab values to fill drop down, sort by weight of records
+        //store them in the `rows` control state variable as a cache
+        rowSegment = segments[rows[rowNum].segment].value
+        console.log('loading segment', rowSegment)
+        api_query( customer, 'values', {segment: rowSegment}).done( function(data) {
+            valObjs = [];
+            vals = Object.keys(data.values)
+            for (i=0; i<vals.length; i++) { 
+                valObjs.push({id:i, text:vals[i], weight:data.values[vals[i]] / data.total })
+            }
+            valObjs.sort(function(a,b) {return b.weight - a.weight})
+            rows[rowNum].values = valObjs
+            
+            console.log(rows, 'check out', rowNum, valObjs)
+            debugger;
+            delete rows[rowNum].wait;
+            makeControls();
+        })
+    }
+
+    var handleSelects = function(element, rowNum) {
+        if (element.attr('class') == 'segment') {
+            element.select2({
+                data: segments
+            });
+            if (rows[rowNum].segment) {
+                element.val(rows[rowNum].segment).trigger("change")
+            }
+        } else if (element.attr('class') == 'logic') {
+            element.select2({
+                data: logic
+            });
+            if (rows[rowNum].logic) {
+                element.val(rows[rowNum].logic).trigger("change")
+            }
+        } else if (element.attr('class') == 'value') {
+
+            // handle the case where a user can select into an array
+            if (rows[rowNum].logic == 4 || rows[rowNum].logic == 5) {
+                console.log('in IN case')
+                element.attr('multiple', 'multiple')
+            }
+
+            element.select2({
+                data: rows[rowNum].values || []
             })
-        };
+
+            //populate selections if already made
+            if (rows[rowNum].value) {
+                element.val(rows[rowNum].value).trigger("change")
+            }
+        }
+    }
+ 
+
+    var makeUseful = function(rowNum) {
+        $.map($("#segControl-" + rowNum).children(), function(element, indexInRow) {
+            element = $(element)
+            if (element.is('select')) {
+                handleSelects(element, rowNum);
+            } 
+            addListener(element, rowNum);
+        })
+    };
+
+    var readControls = function() {
+        selectors = new Array;
+        breakout = new String;
+
+        $.map(rows, function(row) {
+            console.log('ahoy', row)
+            if (row.type == 'filter') {
+                phrase = [segments[row.segment].value, logic[row.logic].value].join(" ");
+                selectors.push(phrase)        
+            } else if (row.type == 'breakout') {
+                breakout = segments[row.segment].value
+            } else {}
+        })
+        
+        return {
+            'selector': selectors.join(" and "),
+            'breakout': breakout
+        }
+
+    };
 
     makeControls(); 
     
+    return {
+        read: readControls
+    }
 }
+
 

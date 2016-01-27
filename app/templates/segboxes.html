@@ -6,9 +6,16 @@
         <script src="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.1/js/select2.min.js"></script>
     </head>
     <body>
+        <select id="cid">
+          {% for item in customers %}
+          <option value={{ item.cid }}>{{ item.name }}</option>
+          {% endfor %}
+        </select>
+
         <script>
             
-            var segControls = function(id) {
+            var segControls = function(id, cid) {
+                var customer = cid
                 var container = id
                 var segments = [{id:0, text:"Network", value:"network"}, {id:1, text:"Geos", value:"geo"}, {id:2, text:"Domain", value:"url_domain"}]
                 var logic = [{id:0, text:"Equals", value: "="}, {id: 1, text:"Not Equal", value: "not ="}]
@@ -120,7 +127,8 @@
                                     if (rows[rowNum].logic) {
                                         element.val(rows[rowNum].logic).trigger("change")
                                     }
-                                } else {
+                                } else if (element.attr('class') == 'value') {
+                                    element.attr('multiple', 'multiple')
                                     element.select2();
                                 }
                             } 
@@ -153,14 +161,15 @@
                 
                 return {
                     read: readControls
-                } 
+                }
             }
 
         </script>
         <div id='segControls' style="width: 75%"></div>
            
         <script>
-            s = segControls("#segControls")
+            $("#cid").select2()
+              .on("select2:select", function(e) { s = segControls("#segControls", e.params.data.id) })
         </script>
     </body>
 </html>
