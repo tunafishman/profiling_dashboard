@@ -1,0 +1,124 @@
+{% extends "webapp.html" %}
+{% block module %}
+<div class="row" style="clear:left">
+
+  <div class="col-sm-8">
+    <div class="chart-wrapper">
+      <div class="chart-title">Population Shift</div>
+      <div class="chart-stage">
+        <div id="grid-1-1"><svg/></div>
+      </div>
+      <div class="chart-notes">The entire population of download complete times</div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="chart-wrapper">
+      <div class="chart-title">Gain breakout</div>
+      <div class="chart-stage">
+        <div id="grid-1-2"><svg/>
+        </div>
+      </div>
+      <div class="chart-notes">How are we doing per subset</div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-sm-6 col-md-4">
+    <div class="chart-wrapper">
+      <div class="chart-title">Cell Title</div>
+      <div class="chart-stage">
+        <img data-src="holder.js/100%x120/white">
+      </div>
+      <div class="chart-notes">Notes about this chart</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-md-4">
+    <div class="chart-wrapper">
+      <div class="chart-title">Cell Title</div>
+      <div class="chart-stage">
+        <img data-src="holder.js/100%x120/white">
+      </div>
+      <div class="chart-notes">Notes about this chart</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-md-4">
+    <div class="chart-wrapper">
+      <div class="chart-title">Traffic portion</div>
+      <div class="chart-stage">
+        <div id="grid-2-3">
+          <svg/>
+        </div>
+      </div>
+      <div class="chart-notes">Based on counts of requests we've seen</div>
+    </div>
+  </div>
+<!-- end of three -->
+  <div class="col-sm-6 col-md-4">
+    <div class="chart-wrapper">
+      <div class="chart-title">Cell Title</div>
+      <div class="chart-stage">
+        <img data-src="holder.js/100%x120/white">
+      </div>
+      <div class="chart-notes">Notes about this chart</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-md-4">
+    <div class="chart-wrapper">
+      <div class="chart-title">Cell Title</div>
+      <div class="chart-stage">
+        <img data-src="holder.js/100%x120/white">
+      </div>
+      <div class="chart-notes">Notes about this chart</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-md-4">
+    <div class="chart-wrapper">
+      <div class="chart-title">Cell Title</div>
+      <div class="chart-stage">
+        <img data-src="holder.js/100%x120/white">
+      </div>
+      <div class="chart-notes">Notes about this chart</div>
+    </div>
+  </div>
+</div>
+</div>
+
+
+<hr>
+
+</div>
+
+
+<script type="text/javascript" src="static/libs/holder/holder.js"></script>
+<script>
+
+
+window.base_api = "{{ api_url }}";
+var s;
+Holder.add_theme("white", { background:"#fff", foreground:"#a7a7a7", size:10 });
+
+function makeGraphs(s) {
+    //grab control information
+    controls = s.read()
+    selector = controls.selector
+    breakout = controls.breakout
+    cid = controls.cid
+    console.log('controls', controls)
+    
+    //update page url
+    page_url = '?cid='+cid+'&selector='+selector+'&breakout='+breakout
+    window.history.pushState(null, 'new graphs', page_url);
+
+    //static information for the page that should be modularized
+    population_div = "#grid-1-1"
+    gains_div = "#grid-1-2"
+    breakout_div = "#grid-2-3"
+
+    makeGains(gains_div, cid,  selector, breakout);
+    makePopulation(population_div, cid, selector)
+    makeBreakout(breakout_div, cid, selector, breakout)
+};
+</script>
+
+{% endblock %}

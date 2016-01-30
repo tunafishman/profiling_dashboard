@@ -301,10 +301,13 @@ var segControls = function(id, cid) {
                         inList = listItem.length > 0 ? listItem[0].id : false
 
                         if (!inList) { // if the input isn't in the list, add it to the end
-                            finalId = rows[rowNum].values.length
+                                       // this happens for `like` selections
+                            finalId = rows[rowNum].values.length //keep it string type for consistency
                             rows[rowNum].values.push({id: finalId, text: input});
                             inList = finalId
                         }
+
+                        console.log("setting value at id", typeof(inList), inList)
                     
                         rows[rowNum].selectedVal = inList
                     }
@@ -391,7 +394,7 @@ var segControls = function(id, cid) {
 
         $.map(rows, function(row) {
             if (row.type == 'filter') {
-                if (typeof(row.selectedVal) == "string") {
+                if (typeof(row.selectedVal) == "number") {
                     valuePhrase = row.values[row.selectedVal].text
                 } else if (Array.isArray(row.selectedVal)) {
                     valuePhrase = "(" + $.map(row.selectedVal, function (index) { return row.values[index].text } ).toString() + ")"

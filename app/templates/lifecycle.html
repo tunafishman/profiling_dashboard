@@ -1,24 +1,8 @@
-<html>
-<head>
-  <title>Something Cool</title>
-  <link rel="stylesheet" type="text/css" href="static/libs/nvd3/css/nv.d3.css" />
-  <script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
-  <script src="static/libs/nvd3/js/nvd3.js"></script>
-</head>
-<body>
-  <select id="cid">
-    {% for item in customers %}
-    <option value={{ item.cid }}>{{ item.name }}</option>
-    {% endfor %}
-  </select>
-  <input id="selector" type="text" name="selector"/>
-  <input id="fetch" type="button" value="Run" />
+{% extends "webapp.html" %}
+{% block module %}
   <div id="lifecycle">
     <svg></svg>
   </div>
-
-  <script type="text/javascript" src="static/libs/jQuery/js/jquery-1.11.3.min.js"></script>
-  <script src="static/js/comparables.js"></script>
 
   <script>
     window.base_api = "{{ api_url }}";
@@ -94,20 +78,15 @@
       })
     }
 
-    function doit() {
-      selector = $( "#selector" ).val()
-      breakout = $( "#breakout" ).val()
-      cid = $( "#cid" ).val()
+    function makeGraphs(s) {
+      controls = s.read()
+      selector = controls.selector
+      breakout = controls.breakout
+      cid = controls.cid
 
       getLife( cid, selector, breakout );
     };
-    $( window ).load( function () {
-      doit();
-    });
-    $( "#fetch" ).click( function() { 
-      doit(); 
-    });
 
   </script>
-</body>
-</html>
+
+{% endblock %}

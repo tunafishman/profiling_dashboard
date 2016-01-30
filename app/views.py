@@ -40,7 +40,7 @@ def index():
         "selector": details.get("selector", False),
         "breakout": details.get("breakout", False)
     }
-    return render_template("webapp.html", customers = cids(), subsets = api_breakouts.keys(), api_url = app.config['API_URL'], page_state = page_state)
+    return render_template("dashboard.html", customers = cids(), api_url = app.config['API_URL'], page_state = page_state)
 
 @app.route('/test')
 def test():
@@ -59,7 +59,13 @@ def segboxes():
 
 @app.route('/life')
 def life():
-    return render_template("lifecycle.html", customers = cids(), api_url = app.config['API_URL'])
+    details = request.args
+    page_state = {
+        "cid": details.get("cid", False),
+        "selector": details.get("selector", False),
+        "breakout": details.get("breakout", False)
+    }
+    return render_template("lifecycle.html", customers = cids(), api_url = app.config['API_URL'], page_state = page_state)
 
 ### API endpoints ###
 api_breakouts = {

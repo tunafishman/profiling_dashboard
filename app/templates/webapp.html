@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multipurpose Dashboard</title>
+    <link rel="stylesheet" type="text/css" href="static/css/dashboard.css" />
+    <link rel="stylesheet" type="text/css" href="static/libs/bootstrap/css/bootstrap.min.css" />
+    <link rel="stylesheet" type="text/css" href="static/libs/nvd3/css/nv.d3.css" />
+    <script src="static/libs/d3/js/d3.min.js" charset="utf-8"></script>
+    <script src="static/libs/nvd3/js/nvd3.js"></script>
+    <script type="text/javascript" src="static/libs/jQuery/js/jquery-1.11.3.min.js"></script>
+    <script type="text/javascript" src="static/libs/bootstrap/js/bootstrap.min.js"></script>
+    <script src="static/js/comparables.js"></script>
+    <link href="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.1/css/select2.min.css" rel="stylesheet" />
+    <script src="static/libs/select2/select2.min.js"></script>
+</head>
+<body class="application">
+
+  <div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container-fluid">
+      <div class="navbar-header">
+        <a class="navbar-brand" href="./">TwinPrime Profiling Dashboard</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+    <div id="controls" style="width:100%; overflow:auto">
+      <div id="internalNav" style="width:10%; float:left">
+        <select id="cid" style="width:100%">
+        <!--{% for item in customers %}
+        <option value={{ item.cid }}>{{ item.name }}</option>
+        {% endfor %}-->
+        </select>
+        <div style="width:100%; text-align:center"> ------------- </div>
+        <ul id="pages">
+          <li><a href="./">Dashboard</a></li>
+          <li><a href="./life">Lifecycles</a></li>
+          <li>Profiling</li>
+        </ul>
+      </div>
+      <div id="segControls" style="width:88%; float:right">
+      </div>
+      <div style="text-align:center">
+        <input id="fetch" type="button" value="Run" />
+      </div>
+    </div>
+    
+    {% block module %}{% endblock %}
+  <script>
+    $( window ).load( function () {
+
+      //set up the cid selector
+      customers = {{ customers|tojson }}.map( function(item) {return {id: item.cid, text: item.name} } )
+      console.log(customers)
+      customers.unshift("")
+      $( "#cid" ).select2({
+          placeholder: "Select a customer",
+          data: customers
+      })
+
+      $( "#cid" ).on("select2:select", function(yo) { 
+          console.log('select', yo), 
+          window.s = segControls( "#segControls", yo.params.data.id) 
+          makeGraphs(s);
+      })
+
+      $( "#fetch" ).on("click", function() {
+          makeGraphs(s);
+      })
+      
+      //handle url params :(
+      {% if page_state.cid %}
+      $( "#cid" ).val("{{ page_state.cid }}").change()
+      $( "#cid" ).trigger("select2:select")
+      {% endif %}
+
+      {% if page_state.selector %}
+      $("#selector").val("{{ page_state.selector }}");
+      {% endif %}
+
+      {% if page_state.breakout %}
+      $("#breakout").val("{{ page_state.breakout }}");
+      {% endif %}
+      
+    });
+  </script>
+
+</body>
+</html>
