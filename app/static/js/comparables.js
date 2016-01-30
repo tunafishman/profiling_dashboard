@@ -286,31 +286,48 @@ var segControls = function(id, cid) {
             },
             value: function(rowNum) {
                 return function(e) {
-                    rows[rowNum].selectedVal = $("#segControl-" + rowNum + " .value").val()
+                    //console.log('setting selected value', $("#segControl-" +rowNum + " .value").val())
+                    input = $("#segControl-" + rowNum + " .value").val()
+                    console.log('input', input)
+
+                    if (Array.isArray(input)) { //this happens for `in` selections
+                        rows[rowNum].selectedVal = input
+
+                    } else { //check whether the input is already in the list of values
+                        listItem = $.grep(rows[rowNum].values, function(item) { return item.text == input || item.id == input} )
+                        inList = listItem.length > 0 ? listItem[0].id : false
+
+                        if (!inList) { // if the input isn't in the list, add it to the end
+                            finalId = rows[rowNum].values.length
+                            rows[rowNum].values.push({id: finalId, text: input});
+                            inList = finalId
+                        }
+                    
+                        rows[rowNum].selectedVal = inList
+                    }
                 }
             }
         };
 
     var loadValues = function(rowNum) {
         //set a flag to disable interaction until values are loaded
-        rows[rowNum].wait = true
+        rows[rowNum].wait = true;
+        delete rows[rowNum].selectedVal;
+        makeControls();
 
         //grab values to fill drop down, sort by weight of records
         //store them in the `rows` control state variable as a cache
         rowSegment = segments[rows[rowNum].segment].value
-        console.log('loading segment', rowSegment)
         api_query( customer, 'values', {segment: rowSegment}).done( function(data) {
-            valObjs = [];
-            vals = Object.keys(data.values)
+            vals = Object.keys(data.values).map(function (key) {return {text: key, weight: data.values[key] / data.total}})
+            vals.sort(function(a,b) {return b.weight - a.weight})
             for (i=0; i<vals.length; i++) { 
-                valObjs.push({id:i, text:vals[i], weight:data.values[vals[i]] / data.total })
+                vals[i].id = i+1 
             }
-            valObjs.sort(function(a,b) {return b.weight - a.weight})
-            rows[rowNum].values = valObjs
+            vals.unshift({id:0, text:''})
+            rows[rowNum].values = vals
             
-            console.log(rows, 'check out', rowNum, valObjs)
-            debugger;
-            delete rows[rowNum].wait;
+            rows[rowNum].wait = false;
             makeControls();
         })
     }
@@ -318,14 +335,16 @@ var segControls = function(id, cid) {
     var handleSelects = function(element, rowNum) {
         if (element.attr('class') == 'segment') {
             element.select2({
-                data: segments
+                data: segments,
+                disabled: rows[rowNum].wait
             });
             if (rows[rowNum].segment) {
                 element.val(rows[rowNum].segment).trigger("change")
             }
         } else if (element.attr('class') == 'logic') {
             element.select2({
-                data: logic
+                data: logic,
+                disabled: rows[rowNum].wait
             });
             if (rows[rowNum].logic) {
                 element.val(rows[rowNum].logic).trigger("change")
@@ -334,17 +353,20 @@ var segControls = function(id, cid) {
 
             // handle the case where a user can select into an array
             if (rows[rowNum].logic == 4 || rows[rowNum].logic == 5) {
-                console.log('in IN case')
+                //console.log('in IN case')
                 element.attr('multiple', 'multiple')
             }
 
             element.select2({
-                data: rows[rowNum].values || []
+                data: rows[rowNum].values || [],
+                disabled: rows[rowNum].wait,
+                multiple: (rows[rowNum].logic == 4 || rows[rowNum].logic == 5) ? true : false, //support multiple selections for `in` queries
+                tags: (rows[rowNum].logic == 2 || rows[rowNum].logic == 3) ? true : false //support custom entries for `like` queries
             })
 
             //populate selections if already made
-            if (rows[rowNum].value) {
-                element.val(rows[rowNum].value).trigger("change")
+            if (rows[rowNum].selectedVal) {
+                element.val(rows[rowNum].selectedVal).trigger("change")
             }
         }
     }
@@ -365,9 +387,16 @@ var segControls = function(id, cid) {
         breakout = new String;
 
         $.map(rows, function(row) {
-            console.log('ahoy', row)
             if (row.type == 'filter') {
-                phrase = [segments[row.segment].value, logic[row.logic].value].join(" ");
+                if (typeof(row.selectedVal) == "string") {
+                    valuePhrase = row.values[row.selectedVal].text
+                } else if (Array.isArray(row.selectedVal)) {
+                    valuePhrase = "(" + $.map(row.selectedVal, function (index) { return row.values[index].text } ).toString() + ")"
+                } else {
+                    console.log(row.selectedVal)
+                    debugger;
+                }
+                phrase = [segments[row.segment].value, logic[row.logic].value, valuePhrase].join(" ");
                 selectors.push(phrase)        
             } else if (row.type == 'breakout') {
                 breakout = segments[row.segment].value
@@ -376,10 +405,15 @@ var segControls = function(id, cid) {
         
         return {
             'selector': selectors.join(" and "),
-            'breakout': breakout
+            'breakout': breakout,
+            'cid': customer
         }
 
     };
+
+    var externalControls = function(selectors, breakout) {
+        selectorPhrases = '';
+    } 
 
     makeControls(); 
     
