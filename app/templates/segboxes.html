@@ -1,0 +1,175 @@
+<html>
+    <head>
+        <title> test for segmentation and breakout boxes</title>
+        <script type="text/javascript" src="static/libs/jQuery/js/jquery-1.11.3.min.js"></script>
+        <link href="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.1/css/select2.min.css" rel="stylesheet" />
+        <script src="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.1/js/select2.min.js"></script>
+    </head>
+    <body>
+        <select id="cid">
+          {% for item in customers %}
+          <option value={{ item.cid }}>{{ item.name }}</option>
+          {% endfor %}
+        </select>
+
+        <script>
+            
+            var segControls = function(id, cid) {
+                var customer = cid
+                var container = id
+                var segments = [{id:0, text:"Network", value:"network"}, {id:1, text:"Geos", value:"geo"}, {id:2, text:"Domain", value:"url_domain"}]
+                var logic = [{id:0, text:"Equals", value: "="}, {id: 1, text:"Not Equal", value: "not ="}]
+
+                var rows = [{type: 'breakout', segment: 0}] //initial state
+                
+                baseModels = {
+                    segment: "<select class='segment' style='width:30%'></select>",
+                    logic: "<select class='logic' style='width: 15%'></select>",
+                    values: "<select class='value' style='width: 50%'></select>",
+                    expand: "<button class='expand'>></button>",
+                    newRow: "<button class='newRow'>+</button>",
+                    deleteRow: "<button class='deleteRow'>X</button>",
+                };
+
+                models = {
+                    breakout: baseModels.segment + baseModels.expand,
+                    filter: baseModels.segment + baseModels.logic + baseModels.values + baseModels.deleteRow,
+                    newRow: baseModels.newRow
+                };
+
+                var makeControls = function() {
+                        div = $(container).empty()
+                        if (rows.length == 1 && rows[0].type == 'newRow') {
+                            //take care of a weird state a user could get to by clicking buttons
+                            rows[0].type = 'breakout'
+                        };
+                        $.map(rows, function(item, index) {
+                            if (item.type in models) {
+                                row = $("<div/>")
+                                        .append(models[item.type])
+                                        .attr('class', item.type)
+                            }
+                            row.attr('id', "segControl-" + index);
+                            div.append(row);
+                        });
+                        $.map($(container).children(), function(row, index) {makeUseful($(row), index);});
+                        console.log(rows)
+                    }
+
+                var addListener = function(element, rowIndex) {
+                        //loop through the html rows and add listeners
+                        cls = element.attr('class')
+                        $.each(listeners, function(key, value) {
+                            if (cls.indexOf(key) > -1) {
+                                x = listeners[key](rowIndex)
+                                if (element.is('select')){
+                                    element.on("select2:select", x)
+                                } else {
+                                    element.click(x);
+                                }
+                            }
+                        });
+                    }
+
+                var listeners = {
+                        expand: function(rowId) {
+                            return function() {
+                                rows[rowId].type = 'filter';
+                                rows[rowId].logic = 0;
+                                rows.push({type: 'newRow'});
+                                makeControls();
+                            }
+                        },
+                        newRow: function(rowId) {
+                            //turn a + button into a breakout
+                            return function() {
+                                rows[rowId].type = 'breakout';
+                                rows[rowId].segment = 0;
+                                makeControls();
+                            }
+                        },
+                        deleteRow: function(rowId) {
+                            //remove this row from the controls
+                            return function() {
+                                rows.splice(rowId, 1)
+                                makeControls();
+                            };
+                        },
+                        segment: function(rowId) {
+                            //register the selection
+                            return function(e) {
+                                rows[rowId].segment = e.params.data.id
+                            }
+                        },
+                        logic: function(rowId) {
+                            return function(e) {
+                                rows[rowId].logic = e.params.data.id
+                            }
+                        }
+
+                    };
+
+                var makeUseful = function(row, rowNum) {
+                        $.map(row.children(), function(element, indexInRow) {
+                            element = $(element)
+                            if (element.is('select')) {
+                                if (element.attr('class') == 'segment') {
+                                    element.select2({
+                                        data: segments
+                                    });
+                                    if (rows[rowNum].segment) {
+                                        element.val(rows[rowNum].segment).trigger("change")
+                                    }
+                                } else if (element.attr('class') == 'logic') {
+                                    element.select2({
+                                        data: logic
+                                    });
+                                    if (rows[rowNum].logic) {
+                                        element.val(rows[rowNum].logic).trigger("change")
+                                    }
+                                } else if (element.attr('class') == 'value') {
+                                    element.attr('multiple', 'multiple')
+                                    element.select2();
+                                }
+                            } 
+                            addListener(element, rowNum);
+                        })
+                    };
+
+                var readControls = function() {
+                    selectors = new Array;
+                    breakout = new String;
+
+                    $.map(rows, function(row) {
+                        console.log(row)
+                        if (row.type == 'filter') {
+                            phrase = [segments[row.segment].value, logic[row.logic].value].join(" ");
+                            selectors.push(phrase)        
+                        } else if (row.type == 'breakout') {
+                            breakout = segments[row.segment].value
+                        } else {}
+                    })
+                    
+                    return {
+                        'selector': selectors.join(" and "),
+                        'breakout': breakout
+                    }
+
+                };
+
+                makeControls(); 
+                
+                return {
+                    read: readControls
+                }
+            }
+
+        </script>
+        <div id='segControls' style="width: 75%"></div>
+           
+        <script>
+            $("#cid").select2()
+              .on("select2:select", function(e) { s = segControls("#segControls", e.params.data.id) })
+        </script>
+    </body>
+</html>

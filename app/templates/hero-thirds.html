@@ -7,7 +7,11 @@
     <link rel="stylesheet" type="text/css" href="static/libs/nvd3/css/nv.d3.css" />
     <script src="static/libs/d3/js/d3.min.js" charset="utf-8"></script>
     <script src="static/libs/nvd3/js/nvd3.js"></script>
-    <script src="static/js/samples.js"></script>  
+    <script type="text/javascript" src="static/libs/jQuery/js/jquery-1.11.3.min.js"></script>
+    <script type="text/javascript" src="static/libs/bootstrap/js/bootstrap.min.js"></script>
+    <script src="static/js/comparables.js"></script>
+    <link href="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.1/css/select2.min.css" rel="stylesheet" />
+    <script src="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.1/js/select2.min.js"></script>
 </head>
 <body class="application">
 
@@ -27,10 +31,6 @@
       </div>
       <div class="navbar-collapse collapse">
         <ul class="nav navbar-nav navbar-left">
-          <!--<li><a href="https://keen.io">Home</a></li>
-          <li><a href="https://keen.io/team">Team</a></li>
-          <li><a href="https://github.com/keenlabs/dashboards/tree/gh-pages/layouts/hero-thirds">Source</a></li>
-          <li><a href="https://groups.google.com/forum/#!forum/keen-io-devs">Community</a></li><li><a href="http://stackoverflow.com/questions/tagged/keen-io?sort=newest&pageSize=15">Technical Support</a></li>-->
         </ul>
       </div>
     </div>
@@ -42,12 +42,15 @@
       <option value={{ item.cid }}>{{ item.name }}</option>
       {% endfor %}
     </select>
-    <input id="selector" type="text" name="selector" />
+    <div id="segControls" style="width: 70%">
+    </div>
+    <!--<input id="selector" type="text" name="selector" />
     <select id="breakout">
       {% for subset in subsets %}
       <option value={{ subset }}>{{ subset }}</option>
       {% endfor %}
     </select>
+    -->
     <input id="fetch" type="button" value="Run" />
     <div class="row">
       <div class="col-sm-8">
@@ -172,9 +175,6 @@
 
   </div>
 
-  <script type="text/javascript" src="static/libs/jQuery/js/jquery-1.11.3.min.js"></script>
-  <script type="text/javascript" src="static/libs/bootstrap/js/bootstrap.min.js"></script>
-  <script src="static/js/comparables.js"></script>
 
   <script type="text/javascript" src="static/libs/holder/holder.js"></script>
   <script>
@@ -216,6 +216,8 @@
     $( "#fetch" ).click( function() {
         makeGraphs(); 
     });
+
+    segControls("#segControls")
   </script>
 
 
