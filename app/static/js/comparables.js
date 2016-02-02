@@ -15,23 +15,21 @@ function api_query(cid, endpoint, args) {
 //    api_query( 'cids' ).done(function(data) {cidDropDown(id, data)});
 //}
 
-function makeGains( id, cid, selector, breakout) {
-    api_query(cid, 'gains', {selector: selector, breakout: breakout}).done(function(data){
+function makeGains( id, controls) {
+    api_query(controls.cid, 'gains', {selector: controls.selector, breakout: controls.breakout}).done(function(data){
         addBreakout(id, breakout_map(data));
     });
 };
 
-function makePopulation( id, cid, selector) {
-    console.log(selector);
-    api_query(cid, 'histogram', {selector: selector, comparable: true}).done(function(data){
+function makePopulation( id, controls) {
+    api_query(controls.cid, 'histogram', {selector: controls.selector, comparable: true}).done(function(data){
         var hist = hist_map(data.histograms)
         addHist(id, hist);
     });
 };
 
-function makeBreakout( id, cid, selector, breakout) {
-    console.log(id);
-    api_query(cid, 'comparables', {selector:selector, breakout:breakout}).done( function(data) {
+function makeBreakout( id, controls) {
+    api_query(controls.cid, 'comparables', {selector:controls.selector, breakout:controls.breakout}).done( function(data) {
         addBreakout(id, breakout_map(data));
     });
 }
