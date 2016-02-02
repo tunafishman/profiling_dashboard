@@ -69,21 +69,13 @@
           makeGraphs(s);
       })
       
-      //handle url params :(
+      //handle url params if they exist 
       {% if page_state.cid %}
       $( "#cid" ).val("{{ page_state.cid }}").change()
       window.s = segControls ( "#segControls", "{{page_state.cid}}") 
       s.set("{{page_state.selector}}", "{{page_state.breakout}}", function() { makeGraphs(s); })
       {% endif %}
-
-      //{% if page_state.selector %}
-      //$("#selector").val("{{ page_state.selector }}");
-      //{% endif %}
-
-      //{% if page_state.breakout %}
-      //$("#breakout").val("{{ page_state.breakout }}");
-      //{% endif %}
-      
+     
     });
   </script>
 

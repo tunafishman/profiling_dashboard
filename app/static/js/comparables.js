@@ -241,7 +241,6 @@ var segControls = function(id, cid) {
                 x = listener(rowNum)
                 if (element.is('select')){
                     element.on("change", x)
-                    console.log('listener', element)
                 } else {
                     element.click(x);
                 }
@@ -277,7 +276,10 @@ var segControls = function(id, cid) {
             segment: function(rowNum) {
                 //register the selection
                 return function(e) {
-                    rows[rowNum].segment = e.params.data.id
+                    console.log('segment change event', e)
+                    segment = $("#segControl-" + rowNum + " .segment").val()
+                    console.log('chosen segment', segment)
+                    rows[rowNum].segment = segment
                     if (rows[rowNum].type == "breakout") {
                         rows[rowNum].type = "breakoutPlus"
                     }
@@ -286,14 +288,16 @@ var segControls = function(id, cid) {
             },
             logic: function(rowNum) {
                 return function(e) {
-                    rows[rowNum].logic = e.params.data.id
+                    logic = $("#segControl-" + rowNum + " .logic").val()
+                    rows[rowNum].logic = logic
+                    console.log('chosen logic?', logic)
                     makeControls();
                 }
             },
             value: function(rowNum) {
                 return function(e) {
                     input = $("#segControl-" + rowNum + " .value").val()
-                    console.log('value select event', e)               
+                    console.log('value change event', e)               
                     console.log('selected input', input)
                     selectValue(rowNum, input)
                 }
@@ -308,24 +312,34 @@ var segControls = function(id, cid) {
                         listItem = $.grep(rows[rowNum].values, function(item) {
                             return item.text == val || item.id == val
                         })
-                        return listItem[0].id
+                        console.log(listItem)
+                        return listItem[0] || false
                     }
+        hi = matcher(rowNum, 'hi') 
+        
+        wifi = matcher(rowNum, 'Wifi');
+        console.log(hi);
+        console.log(wifi);
 
         if (Array.isArray(val)) { //this happens for `in` selections
             console.log('array input', val)
-            select = val.map(function(item) { return matcher(rowNum, item) })
+            matchedItems = val.map(function(item) { return matcher(rowNum, item) })
+            select = matchedItems.map( function(item) {return item.id})
 
         } else { //check whether the input is already in the list of values
             listItem = matcher(rowNum, val)
-            inList = listItem.length > 0 ? listItem[0].id : false
+            inList = listItem ? listItem : false
+            console.log(listItem, inList)
 
             if (inList) {
-                select = inList
+                console.log('input was found in the list', val, inList)
+                select = inList.id
             } else if (!inList) { // if the input isn't in the list, add it to the end
                                   // this happens for some `like` selections
                 finalId = rows[rowNum].values.length
-                rows[rowNum].values.push({id: finalId, text: val});
-                select = finalId
+                newItem = {id: finalId, text:val}
+                rows[rowNum].values.push(newItem);
+                select = newItem.id
             }
 
          

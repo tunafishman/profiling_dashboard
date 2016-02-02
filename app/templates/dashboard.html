@@ -101,16 +101,19 @@ Holder.add_theme("white", { background:"#fff", foreground:"#a7a7a7", size:10 });
 function makeGraphs(s) {
     //grab control information
     controls = s.read()
-    selector = controls.selector
-    breakout = controls.breakout
-    cid = controls.cid
-    console.log('controls', controls)
     
     //update page url
-    page_url = '?cid='+cid+'&selector='+selector+'&breakout='+breakout
+    args = []
+    for (key in controls) {
+        if (controls[key]) {
+           args.push(key + '=' + controls[key]) 
+        }
+    }
+    page_url = '?' + args.join('&')
     window.history.pushState(null, 'new graphs', page_url);
 
-    //static information for the page that should be modularized
+
+    //static information for the page that is now modularized
     population_div = "#grid-1-1"
     gains_div = "#grid-1-2"
     breakout_div = "#grid-2-3"
