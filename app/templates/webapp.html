@@ -51,8 +51,8 @@
 
       //set up the cid selector
       customers = {{ customers|tojson }}.map( function(item) {return {id: item.cid, text: item.name} } )
-      console.log(customers)
       customers.unshift("")
+      
       $( "#cid" ).select2({
           placeholder: "Select a customer",
           data: customers
@@ -60,6 +60,7 @@
 
       $( "#cid" ).on("select2:select", function(yo) { 
           console.log('select', yo), 
+          selectedCid = yo.params.data ? yo.params.data.id : $("#cid").val() //ugh. Handle initial set in an ugly way :(
           window.s = segControls( "#segControls", yo.params.data.id) 
           makeGraphs(s);
       })
@@ -71,16 +72,17 @@
       //handle url params :(
       {% if page_state.cid %}
       $( "#cid" ).val("{{ page_state.cid }}").change()
-      $( "#cid" ).trigger("select2:select")
+      window.s = segControls ( "#segControls", "{{page_state.cid}}") 
+      s.set("{{page_state.selector}}", "{{page_state.breakout}}", function() { makeGraphs(s); })
       {% endif %}
 
-      {% if page_state.selector %}
-      $("#selector").val("{{ page_state.selector }}");
-      {% endif %}
+      //{% if page_state.selector %}
+      //$("#selector").val("{{ page_state.selector }}");
+      //{% endif %}
 
-      {% if page_state.breakout %}
-      $("#breakout").val("{{ page_state.breakout }}");
-      {% endif %}
+      //{% if page_state.breakout %}
+      //$("#breakout").val("{{ page_state.breakout }}");
+      //{% endif %}
       
     });
   </script>

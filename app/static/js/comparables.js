@@ -39,8 +39,6 @@ function makeBreakout( id, cid, selector, breakout) {
 function breakout_map(api_breakout) {
     plottable = []
     temp = {key: api_breakout.key, values: api_breakout.values.sort(function(a, b) { return a.label.localeCompare(b.label)})}
-    console.log("HELLO");
-    console.log(api_breakout);
     for ( datapoint in temp.values ) {
         temp.values[datapoint].value *= 100
     };
@@ -182,13 +180,14 @@ var segControls = function(id, cid) {
     var container = id
     var customer = cid
     var segments = [
-        {id:0, text:"Network", value:"network"},
-        {id:1, text:"Geo", value:"geo"}, 
-        {id:2, text:"Domain", value:"url_domain"},
-        {id:3, text: "Content", value:"content_type"},
-        {id:4, text: "Size", value:"size"}
+        "",
+        {id:1, text:"Network", value:"network"},
+        {id:2, text:"Geo", value:"geo"}, 
+        {id:3, text:"Domain", value:"url_domain"},
+        {id:4, text: "Content", value:"content_type"},
+        {id:5, text: "Size", value:"size"}
     ]
-    var logic = [
+    var logics = [
         {id:0, text:"Equals", value: "="},
         {id:1, text:"Not Equal", value: "not ="},
         {id:2, text:"Like", value: "like"},
@@ -209,7 +208,8 @@ var segControls = function(id, cid) {
     };
 
     models = {
-        breakout: baseModels.segment + baseModels.expand,
+        breakout: baseModels.segment,
+        breakoutPlus : baseModels.segment + baseModels.expand,
         filter: baseModels.segment + baseModels.logic + baseModels.values + baseModels.deleteRow,
         newRow: baseModels.newRow
     };
@@ -240,7 +240,8 @@ var segControls = function(id, cid) {
             if (cls.indexOf(targetClass) > -1) {
                 x = listener(rowNum)
                 if (element.is('select')){
-                    element.on("select2:select", x)
+                    element.on("change", x)
+                    console.log('listener', element)
                 } else {
                     element.click(x);
                 }
@@ -277,8 +278,10 @@ var segControls = function(id, cid) {
                 //register the selection
                 return function(e) {
                     rows[rowNum].segment = e.params.data.id
-                    loadValues(rowNum) //implicitly will call makeControls()
-                    //makeControls();
+                    if (rows[rowNum].type == "breakout") {
+                        rows[rowNum].type = "breakoutPlus"
+                    }
+                    loadValues(rowNum, function() { makeControls() });
                 }
             },
             logic: function(rowNum) {
@@ -289,59 +292,97 @@ var segControls = function(id, cid) {
             },
             value: function(rowNum) {
                 return function(e) {
-                    //console.log('setting selected value', $("#segControl-" +rowNum + " .value").val())
                     input = $("#segControl-" + rowNum + " .value").val()
-                    console.log('input', input)
-
-                    if (Array.isArray(input)) { //this happens for `in` selections
-                        rows[rowNum].selectedVal = input
-
-                    } else { //check whether the input is already in the list of values
-                        listItem = $.grep(rows[rowNum].values, function(item) { return item.text == input || item.id == input} )
-                        inList = listItem.length > 0 ? listItem[0].id : false
-
-                        if (!inList) { // if the input isn't in the list, add it to the end
-                                       // this happens for `like` selections
-                            finalId = rows[rowNum].values.length //keep it string type for consistency
-                            rows[rowNum].values.push({id: finalId, text: input});
-                            inList = finalId
-                        }
-
-                        console.log("setting value at id", typeof(inList), inList)
-                    
-                        rows[rowNum].selectedVal = inList
-                    }
+                    console.log('value select event', e)               
+                    console.log('selected input', input)
+                    selectValue(rowNum, input)
                 }
             }
         };
 
-    var loadValues = function(rowNum) {
-        //set a flag to disable interaction until values are loaded
-        rows[rowNum].wait = true;
-        delete rows[rowNum].selectedVal;
-        makeControls();
+    var selectValue = function(rowNum, val) {
 
-        //grab values to fill drop down, sort by weight of records
-        //store them in the `rows` control state variable as a cache
-        rowSegment = segments[rows[rowNum].segment].value
-        api_query( customer, 'values', {segment: rowSegment}).done( function(data) {
-            vals = Object.keys(data.values).map(function (key) {return {text: key, weight: data.values[key] / data.total}})
-            vals.sort(function(a,b) {return b.weight - a.weight})
-            for (i=0; i<vals.length; i++) { 
-                vals[i].id = i+1 
+        console.log('selectValue', rowNum, val);
+
+        var matcher = function (rowNum, val) {
+                        listItem = $.grep(rows[rowNum].values, function(item) {
+                            return item.text == val || item.id == val
+                        })
+                        return listItem[0].id
+                    }
+
+        if (Array.isArray(val)) { //this happens for `in` selections
+            console.log('array input', val)
+            select = val.map(function(item) { return matcher(rowNum, item) })
+
+        } else { //check whether the input is already in the list of values
+            listItem = matcher(rowNum, val)
+            inList = listItem.length > 0 ? listItem[0].id : false
+
+            if (inList) {
+                select = inList
+            } else if (!inList) { // if the input isn't in the list, add it to the end
+                                  // this happens for some `like` selections
+                finalId = rows[rowNum].values.length
+                rows[rowNum].values.push({id: finalId, text: val});
+                select = finalId
             }
-            vals.unshift({id:0, text:''})
-            rows[rowNum].values = vals
-            
-            rows[rowNum].wait = false;
+
+         
+        }
+        console.log("setting value at id", typeof(select), select)
+        rows[rowNum].selectedVal = select
+    }
+
+    var loadValues = function(rowNum, callback) {
+        //return a Promise
+        return new Promise(function(resolve) {
+            //set a flag to disable interaction until values are loaded
+            rows[rowNum].wait = true;
+            delete rows[rowNum].selectedVal;
             makeControls();
+
+            var whenDone = $.isFunction(callback) ? callback : new Function 
+
+            //grab values to fill drop down, sort by weight of records
+            //store them in the `rows` control state variable as a cache
+            rowSegment = segments[rows[rowNum].segment].value
+            
+            api_query( customer, 'values', {segment: rowSegment}).done( function(data) {
+
+                rows[rowNum].values = formatOptions(data)
+                
+                rows[rowNum].wait = false;
+                makeControls();
+                
+                //execute the callback
+                //whenDone()
+                resolve(whenDone());
+            })
         })
+    }
+
+    var formatOptions = function(data) {
+        vals = Object.keys(data.values).map( function (key) {
+                    return { text: key, weight: data.values[key] / data.total }
+                })
+        
+        vals.sort( function (a,b) { return b.weight - a.weight })
+
+        //shift stuff to allow for a placeholder
+        for (i=0; i<vals.length; i++) {
+            vals[i].id = i+1
+        }
+        vals.unshift("")
+        
+        return vals
     }
 
     var handleSelects = function(element, rowNum) {
         if (element.attr('class') == 'segment') {
             element.select2({
                 data: segments,
+                placeholder: "Segments",
                 disabled: rows[rowNum].wait
             });
             if (rows[rowNum].segment) {
@@ -349,7 +390,7 @@ var segControls = function(id, cid) {
             }
         } else if (element.attr('class') == 'logic') {
             element.select2({
-                data: logic,
+                data: logics,
                 disabled: rows[rowNum].wait
             });
             if (rows[rowNum].logic) {
@@ -359,7 +400,6 @@ var segControls = function(id, cid) {
 
             // handle the case where a user can select into an array
             if (rows[rowNum].logic == 4 || rows[rowNum].logic == 5) {
-                //console.log('in IN case')
                 element.attr('multiple', 'multiple')
             }
 
@@ -372,6 +412,7 @@ var segControls = function(id, cid) {
 
             //populate selections if already made
             if (rows[rowNum].selectedVal) {
+                console.log('handling value select', rows[rowNum].selectedVal)
                 element.val(rows[rowNum].selectedVal).trigger("change")
             }
         }
@@ -397,14 +438,16 @@ var segControls = function(id, cid) {
                 if (typeof(row.selectedVal) == "number") {
                     valuePhrase = row.values[row.selectedVal].text
                 } else if (Array.isArray(row.selectedVal)) {
-                    valuePhrase = "(" + $.map(row.selectedVal, function (index) { return row.values[index].text } ).toString() + ")"
+                    console.log('the selectedVal is an array', row)
+                    valuePhrase = "(" +
+                        $.map(row.selectedVal, function (index) { return row.values[index].text } ).toString() + 
+                        ")"
                 } else {
-                    console.log(row.selectedVal)
-                    debugger;
+                    console.log('u wot m8?', row, row.selectedVal)
                 }
-                phrase = [segments[row.segment].value, logic[row.logic].value, valuePhrase].join(" ");
+                phrase = [segments[row.segment].value, logics[row.logic].value, valuePhrase].join(" ");
                 selectors.push(phrase)        
-            } else if (row.type == 'breakout') {
+            } else if (row.type.indexOf("breakout") > -1) {
                 breakout = segments[row.segment].value
             } else {}
         })
@@ -417,14 +460,81 @@ var segControls = function(id, cid) {
 
     };
 
-    var externalControls = function(selectors, breakout) {
-        selectorPhrases = '';
+    var externalControls = function(selectors, breakoutSegment, callback) {
+
+        var cB = $.isFunction(callback) ? callback : new Function
+        console.log('external controls callback', cB)
+        
+        selectorPhrases = selectors ? selectors.split(" and ") : false
+        breakout = breakoutSegment ? breakoutSegment : false
+        
+        console.log('setting', selectorPhrases, breakout)
+
+        var translator = function (item) {
+            item = item.split(" ");
+            segment = item.shift()
+            value = item.pop()
+
+
+
+            //at this point the entries in item are logic
+            not = $.inArray('not', item) > -1;
+            if (not) {
+                logic = item.join(" ")
+            } else {
+                logic = item[0]
+            }
+
+            return {
+                segment: segment,
+                logic: logic,
+                value: value
+            }
+        }
+
+        if (selectorPhrases) {
+
+            //set up a callback to set selectVal when the values load
+            var callback = function(rowNum, value) {
+                                return function() {
+                                    selectValue(rowNum, value);
+                                    makeControls();
+                                }
+                            }
+
+            toLoad = selectorPhrases.map( function(phrase, index) {                
+                rowInfo = translator(phrase);
+                segOption = $.grep(segments, function(segment) { return segment.value == rowInfo.segment })
+                logicOption = $.grep(logics, function(comparator) { return comparator.value == rowInfo.logic })
+                
+                if (logicOption[0].value.indexOf('in') > -1) {
+                    console.log('We have a list', rowInfo.value)
+                    rowInfo.value = rowInfo.value.replace('(','').replace(')','').split(',')
+                }
+                rows[index] = {type: "filter", segment: segOption[0].id, logic: logicOption[0].id}
+                whenDone = callback(index, rowInfo.value)
+                return loadValues(index, whenDone)
+            })
+        }
+
+        if (breakout) {
+
+            segOption = $.grep(segments, function(segment) { return segment.value == breakout })
+            rows.push({type: "breakoutPlus", segment: segOption[0].id})
+            makeControls();
+        } else {
+            rows.push({type: 'newRow'})
+        }
+
+        //execute callback
+        Promise.all(toLoad).then(function() { console.log('toLoad', toLoad); cB() });
     } 
 
     makeControls(); 
     
     return {
-        read: readControls
+        read: readControls,
+        set: externalControls
     }
 }
 
