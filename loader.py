@@ -65,7 +65,7 @@ class VerticaLoader():
 
     def ReduceResults(self):
         hash_grouped = {}
-        id_keys = ['network', 'geo', 'url_domain', 'size', 'content_type'] #treat content_type separately
+        id_keys = ['network', 'geo', 'url_domain', 'size', 'content_type', 'url_schema', 'sdk_version'] 
 
         for row in self.rows:
             hash_string = "&".join(["=".join([key, row[key]]) for key in id_keys])
@@ -181,6 +181,8 @@ class VerticaLoader():
                 'url_domain': comparable['id']['url_domain'],
                 'content_type': comparable['id']['content_type'],
                 'size': comparable['id']['size'],
+                'schema': comparable['id']['url_schema'],
+                'sdk_version': comparable['id']['sdk_version'],
                 'num_total_records': comparable['num_total_records'],
                 'num_comparable_records': comparable['num_comparable_records'],
                 'num_exception_records': comparable['num_exception_records'],

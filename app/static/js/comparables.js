@@ -182,8 +182,10 @@ var segControls = function(id, cid) {
         {id:1, text:"Network", value:"network"},
         {id:2, text:"Geo", value:"geo"}, 
         {id:3, text:"Domain", value:"url_domain"},
-        {id:4, text: "Content", value:"content_type"},
-        {id:5, text: "Size", value:"size"}
+        {id:4, text:"Content", value:"content_type"},
+        {id:5, text:"Size", value:"size"},
+        {id:6, text:"Schema", value:"schema"},
+        {id:7, text:"SDK Version", value:"sdk_version"}
     ]
     var logics = [
         {id:0, text:"Equals", value: "="},

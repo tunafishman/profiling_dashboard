@@ -18,4 +18,6 @@ class ReducedRow(db.Model):
     bins = db.Column(JSON)
     percentiles = db.Column(JSON)
     reduced_date = db.Column(db.DateTime)
+    schema = db.Column(db.String(20))
+    sdk_version = db.Column(db.String(50))
 

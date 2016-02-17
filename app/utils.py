@@ -5,9 +5,11 @@ redshift_query = \
          partition3 as url_domain,
          partition4 as content_type,
          partition5 as size,
-         partition6 as bin,
+         partition6 as sdk_version,
+         partition7 as url_schema,
+         partition8 as bin,
+         partition9 AS class,
          count(*) AS bin_count,
-         class,
          max(perc25_fbu)   AS perc25_fbu,
          max(perc25_dcu)   AS perc25_dcu,
          max(perc50_fbu)   AS perc50_fbu,
@@ -45,7 +47,8 @@ FROM (
                                     WHEN size < 200000 THEN 'Large'
                                     ELSE 'X-Large'
                            END AS partition5,
-                           50*(1+floor(dcu/50)) as bin,
+                           sdk_version AS partition6,
+                           url_schema AS partition7,
                            CASE
                                     WHEN dcu < 50 THEN '50'
                                     WHEN dcu < 100 THEN '100'
@@ -128,10 +131,9 @@ FROM (
                                     WHEN dcu < 3950 THEN '3950'
                                     WHEN dcu < 4000 THEN '4000'
                                     WHEN dcu >= 4000 THEN '>4000'
-                           END AS partition6,
-                           class,
-
-                           percentile_cont(0.25) within GROUP (ORDER BY size) OVER (partition BY network, geo, url_domain, content_type,
+                           END AS partition8,
+                           class AS partition9,
+                           percentile_cont(0.25) within GROUP (ORDER BY size) OVER (partition BY network, geo, url_domain, content_type, sdk_version, url_schema,
                            CASE
                                     WHEN size < 10000 THEN 'Small'
                                     WHEN size < 30000 THEN 'Medium'
@@ -156,7 +158,7 @@ FROM (
                                     ELSE content_type
                            END,
                            class) AS extra0,
-                           median(size) OVER (partition BY network, geo, url_domain, content_type,
+                           median(size) OVER (partition BY network, geo, url_domain, content_type, sdk_version, url_schema,
                            CASE
                                     WHEN size < 10000 THEN 'Small'
                                     WHEN size < 30000 THEN 'Medium'
@@ -181,7 +183,7 @@ FROM (
                                     ELSE content_type
                            END,
                            class) AS extra1,
-                           percentile_cont(0.75) within GROUP (ORDER BY size) OVER (partition BY network, geo, url_domain, content_type,
+                           percentile_cont(0.75) within GROUP (ORDER BY size) OVER (partition BY network, geo, url_domain, content_type, sdk_version, url_schema,
                            CASE
                                     WHEN size < 10000 THEN 'Small'
                                     WHEN size < 30000 THEN 'Medium'
@@ -206,7 +208,7 @@ FROM (
                                     ELSE content_type
                            END,
                            class) AS extra2,
-                           percentile_cont(0.25) within GROUP (ORDER BY fbu) OVER (partition BY network, geo, url_domain, content_type,
+                           percentile_cont(0.25) within GROUP (ORDER BY fbu) OVER (partition BY network, geo, url_domain, content_type, sdk_version, url_schema,
                            CASE
                                     WHEN size < 10000 THEN 'Small'
                                     WHEN size < 30000 THEN 'Medium'
@@ -231,7 +233,7 @@ FROM (
                                     ELSE content_type
                            END,
                            class) AS perc25_fbu,
-                           percentile_cont(0.25) within GROUP (ORDER BY dcu) OVER (partition BY network, geo, url_domain, content_type,
+                           percentile_cont(0.25) within GROUP (ORDER BY dcu) OVER (partition BY network, geo, url_domain, content_type, sdk_version, url_schema,
                            CASE
                                     WHEN size < 10000 THEN 'Small'
                                     WHEN size < 30000 THEN 'Medium'
@@ -256,7 +258,7 @@ FROM (
                                     ELSE content_type
                            END,
                            class) AS perc25_dcu,
-                           median(fbu) OVER (partition BY network, geo, url_domain, content_type,
+                           median(fbu) OVER (partition BY network, geo, url_domain, content_type, sdk_version, url_schema,
                            CASE
                                     WHEN size < 10000 THEN 'Small'
                                     WHEN size < 30000 THEN 'Medium'
@@ -281,7 +283,7 @@ FROM (
                                     ELSE content_type
                            END,
                            class)  AS perc50_fbu,
-                           median(dcu) OVER (partition BY network, geo, url_domain, content_type,
+                           median(dcu) OVER (partition BY network, geo, url_domain, content_type, sdk_version, url_schema,
                            CASE
                                     WHEN size < 10000 THEN 'Small'
                                     WHEN size < 30000 THEN 'Medium'
@@ -306,7 +308,7 @@ FROM (
                                     ELSE content_type
                            END,
                            class) AS perc50_dcu,
-                           percentile_cont(0.75) within GROUP (ORDER BY fbu) OVER (partition BY network, geo, url_domain, content_type,
+                           percentile_cont(0.75) within GROUP (ORDER BY fbu) OVER (partition BY network, geo, url_domain, content_type, sdk_version, url_schema,
                            CASE
                                     WHEN size < 10000 THEN 'Small'
                                     WHEN size < 30000 THEN 'Medium'
@@ -331,7 +333,7 @@ FROM (
                                     ELSE content_type
                            END,
                            class) AS perc75_fbu,
-                           percentile_cont(0.75) within GROUP (ORDER BY dcu) OVER (partition BY network, geo, url_domain, content_type,
+                           percentile_cont(0.75) within GROUP (ORDER BY dcu) OVER (partition BY network, geo, url_domain, content_type, sdk_version, url_schema,
                            CASE
                                     WHEN size < 10000 THEN 'Small'
                                     WHEN size < 30000 THEN 'Medium'
@@ -372,13 +374,18 @@ GROUP BY partition1,
          partition4,
          partition5,
          partition6,
+         partition7,
+         partition8,
          class
 ORDER BY partition1,
          partition2,
          partition3,
          partition4,
          partition5,
-         partition6
+         partition6,
+         partition7,
+         partition8,
+         class
 LIMIT {limit};"""
 
 content_types = {
