@@ -342,3 +342,61 @@ def lifecycle(cid):
         to_return.append({subset: percentiles})
 
     return jsonify({'percentiles': to_return})
+
+@app.route('/api/v1/<cid>/profiling')
+def profiling(cid):
+    profile_timer = Timer('profile')
+    profile_timer.Start()
+
+    details = request.args
+    selector = details.get('selector', '')
+
+    base_query  = models.ReducedRow.query.filter_by(cid=cid)
+    filtered = queryFilter(base_query, selector)
+
+    if filtered.get('error', False):
+        return jsonify(filtered)
+
+    profile = {
+            'network': {},
+            'geo': {},
+            'size': {},
+            'content_type': {},
+            'url_domain': {}
+            }
+    
+    for record in filtered['results']:
+        this_gain = getattr(record, 'gain')
+        this_total_records = getattr(record, 'num_total_records')
+        this_comparability = 1 if getattr(record, 'comparability') else 0
+        this_comparable_records = getattr(record, 'num_comparable_records') if this_comparability else 0
+
+        for segment in profile.keys(): 
+            
+            record_slice = getattr(record, segment)
+
+            if not record_slice in profile[segment]:
+                profile[segment][record_slice] = { 
+                    'total_records': 0,
+                    'total_segments': 0,
+                    'comparable_records': 0,
+                    'comparable_segments': 0,
+                    'profile_complete_total': 0,
+                    'profile_complete_comparable': 0,
+                    'profile_complete_segments': 0
+                    }
+
+            profile[segment][record_slice]['total_records'] += this_total_records
+            profile[segment][record_slice]['total_segments'] += 1
+            
+            profile[segment][record_slice]['comparable_records'] += this_comparable_records
+            profile[segment][record_slice]['comparable_segments'] += this_comparability
+
+            if this_comparability and this_gain > .1:
+                profile[segment][record_slice]['profile_complete_total'] += this_total_records
+                profile[segment][record_slice]['profile_complete_comparable'] += this_comparable_records
+                profile[segment][record_slice]['profile_complete_segments'] += 1
+
+    profile_timer.End()
+    profile_timer.Log()
+    return jsonify(profile)
