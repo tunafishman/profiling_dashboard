@@ -1,5 +1,5 @@
 function api_query(cid, endpoint, args) {
-    if (!(endpoint == 'gains' || endpoint == 'histogram' || endpoint == 'comparables' || endpoint == 'lifecycle' || endpoint == 'values')) { return {} }
+    //if (!(endpoint == 'gains' || endpoint == 'histogram' || endpoint == 'comparables' || endpoint == 'lifecycle' || endpoint == 'values')) { return {} }
 
     api_url = [window.base_api, cid, endpoint].join('/')
     xhr = $.ajax({

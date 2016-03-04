@@ -1,7 +1,6 @@
 {% extends "webapp.html" %}
 {% block module %}
 <div class="row" style="clear:left">
-
   <div class="col-sm-8">
     <div class="chart-wrapper">
       <div class="chart-title">Population Shift</div>
@@ -86,7 +85,6 @@
 
 
 <hr>
-
 </div>
 
 
@@ -98,20 +96,22 @@ window.base_api = "{{ api_url }}";
 var s;
 Holder.add_theme("white", { background:"#fff", foreground:"#a7a7a7", size:10 });
 
+//put the code for this module inside makeGraphs
 function makeGraphs(s) {
-    //grab control information
-    controls = s.read()
-    
-    //update page url
-    args = []
-    for (key in controls) {
-        if (controls[key]) {
+    //grab control information //
+    controls = s.read()        //
+                               //
+    //update page url          //
+    args = []                  //
+    for (key in controls) {    //
+        if (controls[key]) {   //
            args.push(key + '=' + controls[key]) 
-        }
-    }
+        }                      //
+    }                          //
     page_url = '?' + args.join('&')
     window.history.pushState(null, 'new graphs', page_url);
 
+    /////////////////////////////
 
     //static information for the page that is now modularized
     population_div = "#grid-1-1"

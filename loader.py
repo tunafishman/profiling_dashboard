@@ -25,6 +25,8 @@ class VerticaLoader():
         bigs = ['91', '90', '30', '3524']
         if self.cid in bigs:
             return "SQLEngBig"
+        elif self.cid in ['4035', '4094']:
+            return "SQLEng3"
         else:
             return "SQLEng"
 

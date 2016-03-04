@@ -19,16 +19,18 @@ class Timer():
     def Start(self):
         self.start = time.time()
 
-    def End(self):
-        self.end = time.time()
-        self.elapsed = self.end - self.start
-
     def Printer(self):
         return "{} - {} completed in {} ms\n".format(self.start, self.name, self.elapsed)
 
     def Log(self):
         with open(self.logfile, 'a') as f:
             f.write(self.Printer())
+
+    def End(self):
+        self.end = time.time()
+        self.elapsed = self.end - self.start
+        self.Log()
+
 
 ### pages ###
 @app.route('/')
@@ -66,6 +68,16 @@ def life():
         "breakout": details.get("breakout", False)
     }
     return render_template("lifecycle.html", customers = cids(), api_url = app.config['API_URL'], page_state = page_state)
+
+@app.route('/profiling')
+def profiling():
+    details = request.args
+    page_state = {
+        "cid": details.get("cid", False),
+        "selector": details.get("selector", False),
+        "breakout": details.get("breakout", False)
+    }
+    return render_template("profiling.html", customers = cids(), api_url = app.config['API_URL'], page_state = page_state)
 
 ### API endpoints ###
 api_breakouts = {
@@ -343,13 +355,72 @@ def lifecycle(cid):
 
     return jsonify({'percentiles': to_return})
 
+def appraisal(records, gain_threshhold):
+
+    PROFILE_COMPLETE_GAIN = gain_threshhold
+
+    print "appraising this many comparables", len(records)
+
+    profile = {}
+    profile_keys = ['network', 'geo', 'size', 'content_type', 'url_domain', 'schema']
+
+    subset_placeholder = {
+            'total_subsets': 0,
+            'total_records': 0,
+            'total_acc_byp_records': 0,
+            'comparable_records': 0,
+            'comparable_subsets': 0,
+            'profile_complete_records': 0,
+            'profile_complete_subsets': 0
+        }
+
+    for segment in profile_keys:
+        profile[segment] = {'overall': Counter()}
+        for record in records:
+            this_gain = getattr(record, 'gain')
+            this_comparability = 1 if getattr(record, 'comparability') else 0
+            this_subset = Counter({
+                'total_subsets': 1,
+                'total_records': getattr(record, 'num_total_records'),           #class acc/byp/ace/bye
+                'total_acc_byp_records': getattr(record, 'num_comparable_records'), #class acc/byp
+                'comparable_subsets': 1 if this_comparability else 0,
+                'comparable_records': getattr(record, 'num_comparable_records') if this_comparability else 0,
+                'profile_complete_records': getattr(record, 'num_comparable_records') if (this_gain > PROFILE_COMPLETE_GAIN and this_comparability) else 0,
+                'profile_complete_subsets': 1 if (this_gain > PROFILE_COMPLETE_GAIN and this_comparability) else 0
+                })
+            
+            #add to segment aggregates
+            profile[segment]['overall'] += this_subset
+ 
+            #add information to subset metrics
+            subset = getattr(record, segment)
+            if subset not in profile[segment]:
+                profile[segment][subset] = Counter(subset_placeholder)
+            profile[segment][subset] += this_subset
+    
+    #add zeros for predictable api response
+    profile = dict(profile)
+    for segment in profile:
+        for subset in profile[segment]:
+            for key in subset_placeholder.keys():
+                if key not in profile[segment][subset]:
+                    profile[segment][subset][key] = 0
+
+    return profile
+
 @app.route('/api/v1/<cid>/profiling')
-def profiling(cid):
+def profiling_api(cid):
     profile_timer = Timer('profile')
     profile_timer.Start()
 
     details = request.args
     selector = details.get('selector', '')
+    cutoff = details.get('cutoff', .1)
+
+    try:
+        cutoff = float(cutoff)
+    except ValueError:
+        return "invalid cutoff specified"
 
     base_query  = models.ReducedRow.query.filter_by(cid=cid)
     filtered = queryFilter(base_query, selector)
@@ -357,46 +428,145 @@ def profiling(cid):
     if filtered.get('error', False):
         return jsonify(filtered)
 
-    profile = {
-            'network': {},
-            'geo': {},
-            'size': {},
-            'content_type': {},
-            'url_domain': {}
-            }
+    profile = appraisal(filtered['results'], cutoff)
     
-    for record in filtered['results']:
-        this_gain = getattr(record, 'gain')
-        this_total_records = getattr(record, 'num_total_records')
-        this_comparability = 1 if getattr(record, 'comparability') else 0
-        this_comparable_records = getattr(record, 'num_comparable_records') if this_comparability else 0
-
-        for segment in profile.keys(): 
-            
-            record_slice = getattr(record, segment)
-
-            if not record_slice in profile[segment]:
-                profile[segment][record_slice] = { 
-                    'total_records': 0,
-                    'total_segments': 0,
-                    'comparable_records': 0,
-                    'comparable_segments': 0,
-                    'profile_complete_total': 0,
-                    'profile_complete_comparable': 0,
-                    'profile_complete_segments': 0
-                    }
-
-            profile[segment][record_slice]['total_records'] += this_total_records
-            profile[segment][record_slice]['total_segments'] += 1
-            
-            profile[segment][record_slice]['comparable_records'] += this_comparable_records
-            profile[segment][record_slice]['comparable_segments'] += this_comparability
-
-            if this_comparability and this_gain > .1:
-                profile[segment][record_slice]['profile_complete_total'] += this_total_records
-                profile[segment][record_slice]['profile_complete_comparable'] += this_comparable_records
-                profile[segment][record_slice]['profile_complete_segments'] += 1
-
     profile_timer.End()
     profile_timer.Log()
     return jsonify(profile)
+
+@app.route('/api/v1/<cid>/grading')
+def grading(cid):
+    grading_timer = Timer('profile')
+    grading_timer.Start()
+
+    details = request.args
+    selector = details.get('selector', '')
+    cutoff = details.get('cutoff', .1)
+    
+    try:
+        cutoff = float(cutoff)
+    except ValueError:
+        return "invalid cutoff specified"
+
+    base_query = models.ReducedRow.query.filter_by(cid=cid)
+    filtered = queryFilter(base_query, selector)
+
+    if filtered.get('error', False):
+        return jsonify(filtered)
+
+    profile = appraisal(filtered['results'], cutoff)
+
+    PROFILING_GRADES = {
+            100: "A+",
+            90: "A",
+            80: "B",
+            70: "C",
+            60: "D",
+            -1: "F"
+            }
+
+    grades = {
+        'network': {},
+        'geo': {},
+        'size': {},
+        'content_type': {},
+        'url_domain': {},
+        'schema': {}
+       }
+
+    for segment in profile:
+        overall_segment = profile[segment]['overall']
+        for subset in [key for key in profile[segment].keys() if key != "overall"]:
+            this_subset = profile[segment][subset]
+            
+            grades[segment][subset] = {
+                    'perc_eng_comparable': float(this_subset['comparable_records']) / this_subset['total_acc_byp_records'] if this_subset['total_acc_byp_records'] > 0 else 0,
+                    'perc_eng_complete': float(this_subset['profile_complete_records']) / this_subset['comparable_records'] if this_subset['comparable_records'] > 0 else 0,
+                    'perc_user_comparable': float(this_subset['comparable_subsets']) / this_subset['total_subsets'] if this_subset['total_subsets'] > 0 else 0,
+                    'perc_user_complete': float(this_subset['profile_complete_subsets']) / this_subset['comparable_subsets'] if this_subset['comparable_subsets'] > 0 else 0,
+                }
+
+            #calculate weight of subset based on comparable records (things we can reliably talk about)
+            subset_weight = float(this_subset['comparable_records']) / overall_segment['comparable_records'] if overall_segment['comparable_records'] > 0 else 0 
+            grades[segment][subset].update({
+                "grade_contribution": 100 * subset_weight * grades[segment][subset]['perc_eng_complete'],
+                "missing_contribution": 100 * subset_weight * (1 - grades[segment][subset]['perc_eng_complete'])
+            })
+
+    for i, segment in enumerate([x for x in grades.keys() if x != "final_grades"]):
+        if i == 0:
+            grades['sanity'] = True
+            #calculate final grade for whatever the first segment is (they should all be the same)
+            grades['final_grade'] = sum([ grades[segment][x]['grade_contribution'] for x in grades[segment] ]) 
+        else:
+            #ensure sanity (they are all in fact the same)
+            this_grade = sum([ grades[segment][x]['grade_contribution'] for x in grades[segment] ])
+            if round(this_grade, 6) != round(grades['final_grade'], 6):
+                grades['sanity'] = False
+    i=0
+    grade_breakpoints = sorted(PROFILING_GRADES.keys())
+    while grades['final_grade'] >= grade_breakpoints[i]:
+        print grade_breakpoints[i], grades['final_grade']
+        i += 1
+
+    grades['final_letter_grade'] = PROFILING_GRADES[grade_breakpoints[i-1]]
+ 
+    return jsonify(grades)
+
+
+"""
+if i == 0: #calculate totals in first segment
+            final_grades['totals'] = {
+                    'acc_byp' = total_acc_byp_records,
+                    'comparable' = total_comparable_records,
+                    'profile_complete' = total_profile_complete_records
+                    }
+        else: #compare subsequent segments totals to first segment
+
+            if  != final_grades['records'] or segment[1]['total']['subsets'] != final_grades['subsets']:
+                sanity = False
+
+    final_grades['sanity'] = sanity
+
+    for segment in profile.keys():
+        segment_total_records, segment_total_subsets = 0, 0
+        #compute grade for comparable coverage of total
+        #compute grade for profile complete within comparable subsets
+        for record_slice, details in profile[segment].items():
+            total_records = details.get('total_records', 0)
+            total_subsets = details.get('total_subsets', 0)
+
+            segment_total_records += total_records
+            segment_total_subsets += total_subsets
+
+            perc_comparable_records = float(details['comparable_records']) / total_records
+            perc_comparable_subsets = float(details['comparable_subsets']) / total_subsets
+
+            perc_profile_complete_records = 100*float(details['profile_complete_records']) / total_records
+            perc_profile_complete_subsets = 100*float(details['profile_complete_subsets']) / total_subsets
+
+            grades[segment][record_slice] = {
+                    #'eng_complete': PROFILING_GRADES.get(perc_profile_complete_records - perc_profile_complete_records % 10, "F"),
+                    #'user_complete': PROFILING_GRADES.get(perc_profile_complete_segments - perc_profile_complete_segments % 10, "F")
+                    
+                    
+                    'comparable_records': perc_comparable_records,
+                    'profile_complete_records': perc_profile_complete_records,
+                    'comparable_subsets': perc_comparable_subsets,
+                    'profile_complete_subsets': perc_profile_complete_subsets,
+                    'weight_factor_records': total_records,
+                    'weight_factor_subsets': total_subsets
+                    }
+
+        #now calculate final grades and give a letter
+        record_grade, subset_grade = 0, 0
+        for subset, details in grades[segment].items():
+            record_grade += details['profile_complete_records'] * float(details['weight_factor_records']) / segment_total_records
+            subset_grade += details['profile_complete_subsets'] * float(details['weight_factor_subsets']) / segment_total_subsets
+
+            grades[segment]['total'] = {
+                    'records': PROFILING_GRADES.get(int(record_grade - record_grade % 10), "F"),
+                    'subsets': PROFILING_GRADES.get(int(subset_grade - subset_grade % 10), "F")
+                    }
+
+"""

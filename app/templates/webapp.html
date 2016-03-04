@@ -35,7 +35,7 @@
         <ul id="pages">
           <li><a href="./">Dashboard</a></li>
           <li>Lifecycles</li>
-          <li>Profiling</li>
+          <li><a href="./profiling">Profiling</a></li>
         </ul>
       </div>
       <div id="segControls" style="width:88%; float:right">
@@ -51,8 +51,8 @@
 
       //set up the cid selector
       customers = {{ customers|tojson }}.map( function(item) {return {id: item.cid, text: item.name} } )
-      customers.unshift("")
-      
+
+      customers.unshift("") //select2 works with a placeholder only with explicit blank option at the top
       $( "#cid" ).select2({
           placeholder: "Select a customer",
           data: customers
