@@ -10,7 +10,8 @@ import sqlalchemy as sa
 
 class VerticaLoader():
 
-    def __init__(self, endpoint, dbname, port, user, password, endpoint_big=None):
+    def __init__(self, cid, endpoint, dbname, port, user, password, endpoint_big=None):
+        self.cid = cid
         self.cursor = None
         self.endpoint = endpoint
         self.endpoint_big = endpoint_big
@@ -220,18 +221,27 @@ class VerticaLoader():
             db.session.add(rr)
         db.session.commit()
 
-    def DailyJobs(self, cid, num_days, end=datetime.datetime.now()):
+    def RemoveOldEntries(self, cutoff_date):
+        print "removing entries prior to {}".format(cutoff_date)
+        num_rows_deleted = models.ReducedRow.query.filter_by(cid=self.cid).filter(models.ReducedRow.reduced_date <= cutoff_date).delete()
+        db.session.commit()
+
+        print "{} rows deleted".format(num_rows_deleted)
+
+    def DailyJobs(self, num_days, end=datetime.datetime.now()):
         ''' create a set of jobs to process for daily aggregation '''
-        print "Grabbing the last {} days for cid {}".format(num_days, cid)
+        print "Grabbing the last {} days for cid {}".format(num_days, self.cid)
         today = datetime.date.today()
         dates = [ (today - datetime.timedelta(days=n), today - datetime.timedelta(days=n+1)) for n in range(0, num_days) ]
 
         for job in dates:
-            self.Query( cid, job[1], job[0], 500000)
+            self.Query( self.cid, job[1], job[0], 500000)
             self.ReduceResults()
             self.LoadToProduction()
 
             self.rows, self.comparables = None, None
+
+        self.RemoveOldEntries( today - datetime.timedelta(days=5 + 1)) #remove entries prior to last 5 days
 
     def test(self):
         if not self.cursor:
@@ -244,7 +254,7 @@ if __name__ == "__main__":
     cid = sys.argv[1]
     num_days = int(sys.argv[2])
 
-    tplog = VerticaLoader(credentials.vertica_endpoint, credentials.vertica_dbname,
+    tplog = VerticaLoader(cid, credentials.vertica_endpoint, credentials.vertica_dbname,
                             credentials.vertica_port, credentials.vertica_user, credentials.vertica_pass, endpoint_big  = credentials.vertica_endpoint_big)
 
-    tplog.DailyJobs(cid, num_days)
+    tplog.DailyJobs(num_days)
