@@ -506,7 +506,6 @@ def grading(cid):
     i=0
     grade_breakpoints = sorted(PROFILING_GRADES.keys())
     while grades['final_grade'] >= grade_breakpoints[i]:
-        print grade_breakpoints[i], grades['final_grade']
         i += 1
 
     grades['final_letter_grade'] = PROFILING_GRADES[grade_breakpoints[i-1]]

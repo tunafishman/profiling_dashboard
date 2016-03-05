@@ -3,6 +3,7 @@ from app import db, models, utils
 from collections import defaultdict
 from sqlalchemy import create_engine, text
 
+import customers
 import datetime
 import json
 import pyodbc
@@ -10,31 +11,35 @@ import sqlalchemy as sa
 
 class VerticaLoader():
 
-    def __init__(self, cid, endpoint, dbname, port, user, password, endpoint_big=None):
-        self.cid = cid
+    def __init__(self, endpoint, dbname, port, user, password, endpoint_big=None):
+        self.cid = None
+        self.connectedDb = None
         self.cursor = None
+        self.dbname = None
         self.endpoint = endpoint
         self.endpoint_big = endpoint_big
-        self.dbname = dbname
+        self.password = password
         self.port = port
         self.user = user
-        self.password = password
         self.SIGNIFICANT_RECORD_COUNT = 200
         self.SIGNIFICANT_PERCENTILE_ERROR = .15
 
     def dbCidMap(self):
-        bigs = ['91', '90', '30', '3524']
+        bigs = [91, 90, 30, 3524]
         if self.cid in bigs:
-            return "SQLEngBig"
-        elif self.cid in ['4035', '4094']:
-            return "SQLEng3"
+            self.dbname = "SQLEngBig"
+        elif self.cid in [4035, 4094]:
+            self.dbname = "SQLEng3"
         else:
-            return "SQLEng"
+            self.dbname = "SQLEng"
 
     def Connect(self):
-        self.engine_string = "vertica+pyodbc://{user}:{password}@{vertica}".format(user=self.user, password=self.password, vertica = self.dbCidMap())#, dbname=self.dbname)
+        self.dbCidMap()
+        self.engine_string = "vertica+pyodbc://{user}:{password}@{vertica}".format(user=self.user, password=self.password, vertica = self.dbname)
         vertica = sa.create_engine(self.engine_string)
         self.cursor = vertica.connect()
+        self.connectedDb = self.dbname
+        print "connected db", self.dbname
 
     def Query(self, cid, start_date='', end_date='', limit=500):
         self.cid = cid
@@ -44,7 +49,7 @@ class VerticaLoader():
             'start_date': start_date,
             'end_date': end_date,
             'limit': limit,
-            'cid': cid
+            'cid': self.cid
             })
 
         self.currentStart = formatter['start_date']
@@ -55,7 +60,7 @@ class VerticaLoader():
 
     def queryScrub(self, details):
         ''' some day this would check for whether a user had access to this cid '''
-        self.cid = details['cid']
+        #self.cid = details['cid']
 
         # default to grabbing yesterday's data
         scrubbed = {
@@ -228,14 +233,15 @@ class VerticaLoader():
 
         print "{} rows deleted".format(num_rows_deleted)
 
-    def DailyJobs(self, num_days, end=datetime.datetime.now()):
+    def DailyJobs(self, cid, num_days, end=datetime.datetime.now()):
         ''' create a set of jobs to process for daily aggregation '''
-        print "Grabbing the last {} days for cid {}".format(num_days, self.cid)
+        print "Grabbing the last {} days for cid {}".format(num_days, cid)
         today = datetime.date.today()
         dates = [ (today - datetime.timedelta(days=n), today - datetime.timedelta(days=n+1)) for n in range(0, num_days) ]
 
         for job in dates:
-            self.Query( self.cid, job[1], job[0], 500000)
+            self.Query( cid, job[1], job[0], 500000 )
+            print "vertica query for {} - {} to {} with {}".format(job[1], job[0], self.dbname, self.cursor)
             self.ReduceResults()
             self.LoadToProduction()
 
@@ -244,7 +250,12 @@ class VerticaLoader():
         self.RemoveOldEntries( today - datetime.timedelta(days=5 + 1)) #remove entries prior to last 5 days
 
     def test(self):
+        self.dbCidMap()
+        if self.connectedDb != self.dbname:
+            print "mismatch db"
+            self.cursor = None
         if not self.cursor:
+            print "grabbing new connection"
             self.Connect()
 
 if __name__ == "__main__":
@@ -254,7 +265,16 @@ if __name__ == "__main__":
     cid = sys.argv[1]
     num_days = int(sys.argv[2])
 
-    tplog = VerticaLoader(cid, credentials.vertica_endpoint, credentials.vertica_dbname,
-                            credentials.vertica_port, credentials.vertica_user, credentials.vertica_pass, endpoint_big  = credentials.vertica_endpoint_big)
-
-    tplog.DailyJobs(num_days)
+    if cid != "auto":
+        try:
+            cids = [int(cid)]
+        except:
+            print "invalid cid specified"
+            exit()
+    else:
+        cids = sorted(customers.cidToName.keys())
+    
+    tplog = VerticaLoader(credentials.vertica_endpoint, credentials.vertica_dbname,
+                    credentials.vertica_port, credentials.vertica_user, credentials.vertica_pass, endpoint_big  = credentials.vertica_endpoint_big)
+    for cid in cids:
+        tplog.DailyJobs(cid, num_days)
