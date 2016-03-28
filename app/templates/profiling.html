@@ -1,0 +1,108 @@
+{% extends "webapp.html" %}
+{% block module %}
+<div class="row">
+  <div class="col-sm-12">
+    <div class="chart-wrapper">
+      <div class="chart-title">Overall Metrics</div>
+      <div class="chart-stage">
+          <!-- Here's a dummy bit of HTML to mock up style -->
+          <div>
+            <span id='grade-label'>Grade: </span>
+            <span id='grade'></span>
+            <span id='significance-label'></span>
+          </div>
+          <!-- end dummy -->
+      </div>
+      <div class="chart-notes">Notes about this chart</div>
+    </div>
+  </div>
+</div>
+<div class="row" style="clear:left">
+  <div id="contributors" class="col-sm-6">
+    <div class="chart-wrapper">
+      <div class="chart-title">Contributors</div>
+      <div class="chart-stage">
+      </div>
+      <div class="chart-notes">The biggest contributors to Profile Completeness</div>
+    </div>
+  </div>
+  <div id="missing" class="col-sm-6">
+    <div class="chart-wrapper">
+      <div class="chart-title">Missing</div>
+      <div class="chart-stage">
+        <div id="grid-1-2">
+        </div>
+      </div>
+      <div class="chart-notes">The most significant missing portions of Profile Completeness</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script type="text/javascript" src="static/libs/holder/holder.js"></script>
+<script>
+
+window.base_api = "{{ api_url }}";
+window.s;
+Holder.add_theme("white", { background:"#fff", foreground:"#a7a7a7", size:10 });
+
+function grabSubsets(apiResponse, sortingKey) {
+    important_data = []
+    console.log('controls', controls, controls.breakout, controls.breakout == "");
+    for (segment in apiResponse) {
+        if ( controls.breakout == "" && $.isPlainObject(apiResponse[segment])) {
+            //add the subsets to the pile
+            add_segment = segment
+        } else if (controls.breakout != "" && segment == controls.breakout) {
+            //add the subsets to the (single) pile
+            add_segment = segment
+        } else {
+            //pass
+            add_segment = false
+        }
+        
+        if (add_segment) {
+            $.each(apiResponse[add_segment], function(i, subset_info) {
+                important_data.push([i, subset_info[sortingKey].toFixed(2), subset_info, add_segment])
+            })
+        }
+        
+        //sort the data by contribution
+        important_data.sort(function(a, b) { return b[1] - a[1] })
+    }
+    console.log('important', important_data)
+    return important_data
+}
+
+
+function makeGraphs(s) {
+    //grab control information
+    controls = s.read()
+    
+    //update page url
+    //args = []
+    //for (key in controls) {
+    //    if (controls[key]) {
+    //       args.push(key + '=' + controls[key]) 
+    //    }
+    //}
+    //page_url = '?' + args.join('&')
+    page_url = '?' + $.param(controls)
+    console.log('url change', page_url)
+    window.history.pushState(null, 'new graphs', page_url);
+
+    api_query(controls.cid, 'grading', controls).done( function(data) { 
+        
+        $("#grade").text(data.final_letter_grade)
+            .attr('title', data.final_grade.toFixed(2))
+            .on('hover', function(){this.tooltip()});
+            
+        contributors = contributor("#contributors .chart-stage", controls.selector, grabSubsets(data, 'grade_contribution'));
+            
+        missings = contributor("#missing .chart-stage", controls.selector, grabSubsets(data, 'missing_contribution')); 
+    })
+
+};
+</script>
+
+{% endblock %}

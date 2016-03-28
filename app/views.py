@@ -219,6 +219,7 @@ def gains(cid):
     gain_massage.Start()
     for entry in filtered['results']:
         subset = getattr(entry, breakout) if breakout else 'global'
+        this_boltz = float(entry.gain) * float(entry.num_comparable_records)
 
         temp[subset]['comp_records'] += float(entry.num_comparable_records)
         temp[subset]['total_records'] += float(entry.num_total_records)

@@ -217,7 +217,7 @@ var segControls = function(id, cid) {
     var makeControls = function() {
             div = $(container).empty()
             if (rows.length == 1 && rows[0].type == 'newRow') {
-                //take care of a weird state a user could get to by clicking buttons
+                //take care of a weird state a user could get to by clicking deleteRow buttons
                 rows[0].type = 'breakout'
             };
             $.map(rows, function(item, index) {
@@ -468,13 +468,18 @@ var segControls = function(id, cid) {
         
         return {
             'selector': selectors.join(" and "),
-            'breakout': breakout,
+            'breakout': breakout ? breakout : false,
             'cid': customer
         }
 
     };
 
     var externalControls = function(selectors, breakoutSegment, callback) {
+
+        if (selectors || breakoutSegment) {
+            //things are being set externally, remove stub rows variable
+            rows = []
+        }
 
         var cB = $.isFunction(callback) ? callback : new Function
         console.log('external controls callback', cB)
@@ -491,7 +496,7 @@ var segControls = function(id, cid) {
 
 
 
-            //at this point the entries in item are logic
+            //entries in item are logic but 'not'-ed logic requires special case
             not = $.inArray('not', item) > -1;
             if (not) {
                 logic = item.join(" ")
@@ -507,6 +512,7 @@ var segControls = function(id, cid) {
         }
 
         if (selectorPhrases) {
+            console.log('Bueller?', selectorPhrases)
 
             //set up a callback to set selectVal when the values load
             var callback = function(rowNum, value) {
@@ -529,6 +535,10 @@ var segControls = function(id, cid) {
                 whenDone = callback(index, rowInfo.value)
                 return loadValues(index, whenDone)
             })
+
+            //execute callback
+            Promise.all(toLoad).then(function() { console.log('toLoad', toLoad); cB() });
+
         }
 
         if (breakout) {
@@ -540,8 +550,6 @@ var segControls = function(id, cid) {
             rows.push({type: 'newRow'})
         }
 
-        //execute callback
-        Promise.all(toLoad).then(function() { console.log('toLoad', toLoad); cB() });
     } 
 
     makeControls(); 
@@ -552,4 +560,69 @@ var segControls = function(id, cid) {
     }
 }
 
+var contributor = function(id, scope, profiled_subsets) {
 
+    var container = id;
+    var scope = scope;
+    console.log('scope', scope);
+    var contributors = profiled_subsets;
+    var index = 0;
+    var num_items = 4;
+
+    var baseModels = {
+        subset: "<td class='subset'></td><td class='contribution'></td>",
+        scrollUp: "<td><button class='scrollUp'>+</td>",
+        scrollDown: "<td><button class='scrollDown'>-</td>",
+        blank: "<td></td>"
+    }
+    
+    var models = {
+        subsetUp: "<tr>" + baseModels.subset + baseModels.scrollUp + "</tr>",
+        subset: "<tr>" + baseModels.subset + baseModels.blank + "</tr>",
+        subsetDown: "<tr>" + baseModels.subset + baseModels.scrollDown + "</tr>" 
+    }
+
+    var makeView = function(){ 
+        table = $(container).empty();
+        
+        // create table structure
+        table.html( $("<table>").attr('width', '100%').append( $.map(contributors.slice(index, index+num_items), function(cont, i) {
+            console.log(i);
+            if (index > 0 && i == 0) { // top row with larger contributors in the list
+                return $(models.subsetUp)
+            } else if (i==num_items - 1 && i < contributors.length -1) { // bottom row with smaller contributors in the list
+                return $(models.subsetDown)
+            } else { // a regular row with no extra controls
+                return $(models.subset)
+            }
+        })))
+
+        // add information into that table
+        makeUseful();
+    }
+
+    var makeUseful = function() {
+        tableTag = container + " table tbody";
+        tableRows = $(tableTag).children(); // grab the rows
+        $.each(tableRows, function(i, tableRow) {
+            subset = contributors[i+index][0];
+            grade_cont = contributors[i+index][1];
+            segment = contributors[i+index][3];
+            $(tableRow).find('.subset')
+                .text(subset)
+                .on('click', handlers(subset, segment, scope));
+            $(tableRow).find('.contribution')
+                .text(grade_cont)
+        })
+        $(tableTag).find('.scrollUp').on('click', function() { index += -1; console.log('up', index); makeView()});
+        $(tableTag).find('.scrollDown').on('click', function() { index += 1; console.log('down', index); makeView()});        
+    }
+
+    var handlers = function(subset, segment) { 
+        // add a handler to move the data for topSubset and bottomSubset
+    }
+
+    makeView();
+
+    return {make: makeView}
+}

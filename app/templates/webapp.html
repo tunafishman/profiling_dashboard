@@ -33,9 +33,9 @@
         </select>
         <div style="width:100%; text-align:center"> ------------- </div>
         <ul id="pages">
-          <li><a href="./">Dashboard</a></li>
-          <li>Lifecycles</li>
-          <li><a href="./profiling">Profiling</a></li>
+          <li id="dashboard"><a href="./">Dashboard</a></li>
+          <li id="lifecycles">Lifecycles</li>
+          <li id="profiling"><a href="./profiling">Profiling</a></li>
         </ul>
       </div>
       <div id="segControls" style="width:88%; float:right">
@@ -72,8 +72,10 @@
       //handle url params if they exist 
       {% if page_state.cid %}
       $( "#cid" ).val("{{ page_state.cid }}").change()
+      selected = "{{ page_state.selector }}" != "False" ? "{{ page_state.selector }}" : false;
+      breakout = "{{ page_state.breakout }}" != "False" ? "{{ page_state.breakout }}" : false;
       window.s = segControls ( "#segControls", "{{page_state.cid}}") 
-      s.set("{{page_state.selector}}", "{{page_state.breakout}}", function() { makeGraphs(s); })
+      s.set(selected, breakout, function() { makeGraphs(s); })
       {% endif %}
      
     });
