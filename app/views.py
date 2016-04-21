@@ -53,7 +53,8 @@ def test():
         "breakout": details.get('breakout', False)
         }
     print page_state
-    return render_template("test.html", page_state = page_state, customers = cids(), subsets = api_breakouts.keys())
+    print app.config['API_URL']
+    return render_template("plotlytest.html", customers = cids(), api_url = app.config['API_URL'], page_state = page_state)
 
 @app.route('/segboxes')
 def segboxes():

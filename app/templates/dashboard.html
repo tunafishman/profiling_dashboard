@@ -97,21 +97,12 @@ var s;
 Holder.add_theme("white", { background:"#fff", foreground:"#a7a7a7", size:10 });
 
 //put the code for this module inside makeGraphs
+//the "Run" button will call this function to update the page
 function makeGraphs(s) {
-    //grab control information //
-    controls = s.read()        //
-                               //
-    //update page url          //
-    args = []                  //
-    for (key in controls) {    //
-        if (controls[key]) {   //
-           args.push(key + '=' + controls[key]) 
-        }                      //
-    }                          //
-    page_url = '?' + args.join('&')
+    controls = s.read()
+    page_url = '?' + $.param(controls)
+    console.log('new page url', page_url)
     window.history.pushState(null, 'new graphs', page_url);
-
-    /////////////////////////////
 
     //static information for the page that is now modularized
     population_div = "#grid-1-1"

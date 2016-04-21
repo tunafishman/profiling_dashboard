@@ -297,8 +297,6 @@ var segControls = function(id, cid) {
             value: function(rowNum) {
                 return function(e) {
                     input = $("#segControl-" + rowNum + " .value").val()
-                    console.log('value change event', e)               
-                    console.log('selected input', input)
                     selectValue(rowNum, input)
                 }
             }
@@ -306,30 +304,20 @@ var segControls = function(id, cid) {
 
     var selectValue = function(rowNum, val) {
 
-        console.log('selectValue', rowNum, val);
-
         var matcher = function (rowNum, val) {
                         listItem = $.grep(rows[rowNum].values, function(item) {
                             return item.text == val || item.id == val
                         })
-                        console.log(listItem)
                         return listItem[0] || false
                     }
-        hi = matcher(rowNum, 'hi') 
-        
-        wifi = matcher(rowNum, 'Wifi');
-        console.log(hi);
-        console.log(wifi);
 
         if (Array.isArray(val)) { //this happens for `in` selections
-            console.log('array input', val)
             matchedItems = val.map(function(item) { return matcher(rowNum, item) })
             select = matchedItems.map( function(item) {return item.id})
 
         } else { //check whether the input is already in the list of values
             listItem = matcher(rowNum, val)
             inList = listItem ? listItem : false
-            console.log(listItem, inList)
 
             if (inList) {
                 console.log('input was found in the list', val, inList)
@@ -445,7 +433,6 @@ var segControls = function(id, cid) {
 
     var readControls = function() {
         selectors = new Array;
-        breakout = new String;
 
         $.map(rows, function(row) {
             if (row.type == 'filter') {
@@ -462,13 +449,17 @@ var segControls = function(id, cid) {
                 phrase = [segments[row.segment].value, logics[row.logic].value, valuePhrase].join(" ");
                 selectors.push(phrase)        
             } else if (row.type.indexOf("breakout") > -1) {
-                breakout = segments[row.segment].value
+                //this handles an unset 'breakout' or a set 'breakoutPlus'
+                //the ternary is required because select2 needs a blank object at the 0 position
+                //which means a .value attribute won't be set for breakout argument
+                //on page loads with only a cid specified
+                breakout = row.segment != 0 ? segments[row.segment].value : ""
             } else {}
         })
         
         return {
             'selector': selectors.join(" and "),
-            'breakout': breakout ? breakout : false,
+            'breakout': breakout,
             'cid': customer
         }
 
@@ -482,13 +473,10 @@ var segControls = function(id, cid) {
         }
 
         var cB = $.isFunction(callback) ? callback : new Function
-        console.log('external controls callback', cB)
         
         selectorPhrases = selectors ? selectors.split(" and ") : false
         breakout = breakoutSegment ? breakoutSegment : false
         
-        console.log('setting', selectorPhrases, breakout)
-
         var translator = function (item) {
             item = item.split(" ");
             segment = item.shift()
@@ -512,7 +500,6 @@ var segControls = function(id, cid) {
         }
 
         if (selectorPhrases) {
-            console.log('Bueller?', selectorPhrases)
 
             //set up a callback to set selectVal when the values load
             var callback = function(rowNum, value) {
@@ -536,18 +523,23 @@ var segControls = function(id, cid) {
                 return loadValues(index, whenDone)
             })
 
-            //execute callback
-            Promise.all(toLoad).then(function() { console.log('toLoad', toLoad); cB() });
-
+        } else {
+            toLoad = false;
         }
 
         if (breakout) {
-
             segOption = $.grep(segments, function(segment) { return segment.value == breakout })
             rows.push({type: "breakoutPlus", segment: segOption[0].id})
             makeControls();
         } else {
             rows.push({type: 'newRow'})
+        }
+
+        if (toLoad) {
+            //execute callback
+            Promise.all(toLoad).then(function() { console.log('toLoad', toLoad); cB() });
+        } else {
+            cB()
         }
 
     } 
@@ -558,71 +550,4 @@ var segControls = function(id, cid) {
         read: readControls,
         set: externalControls
     }
-}
-
-var contributor = function(id, scope, profiled_subsets) {
-
-    var container = id;
-    var scope = scope;
-    console.log('scope', scope);
-    var contributors = profiled_subsets;
-    var index = 0;
-    var num_items = 4;
-
-    var baseModels = {
-        subset: "<td class='subset'></td><td class='contribution'></td>",
-        scrollUp: "<td><button class='scrollUp'>+</td>",
-        scrollDown: "<td><button class='scrollDown'>-</td>",
-        blank: "<td></td>"
-    }
-    
-    var models = {
-        subsetUp: "<tr>" + baseModels.subset + baseModels.scrollUp + "</tr>",
-        subset: "<tr>" + baseModels.subset + baseModels.blank + "</tr>",
-        subsetDown: "<tr>" + baseModels.subset + baseModels.scrollDown + "</tr>" 
-    }
-
-    var makeView = function(){ 
-        table = $(container).empty();
-        
-        // create table structure
-        table.html( $("<table>").attr('width', '100%').append( $.map(contributors.slice(index, index+num_items), function(cont, i) {
-            console.log(i);
-            if (index > 0 && i == 0) { // top row with larger contributors in the list
-                return $(models.subsetUp)
-            } else if (i==num_items - 1 && i < contributors.length -1) { // bottom row with smaller contributors in the list
-                return $(models.subsetDown)
-            } else { // a regular row with no extra controls
-                return $(models.subset)
-            }
-        })))
-
-        // add information into that table
-        makeUseful();
-    }
-
-    var makeUseful = function() {
-        tableTag = container + " table tbody";
-        tableRows = $(tableTag).children(); // grab the rows
-        $.each(tableRows, function(i, tableRow) {
-            subset = contributors[i+index][0];
-            grade_cont = contributors[i+index][1];
-            segment = contributors[i+index][3];
-            $(tableRow).find('.subset')
-                .text(subset)
-                .on('click', handlers(subset, segment, scope));
-            $(tableRow).find('.contribution')
-                .text(grade_cont)
-        })
-        $(tableTag).find('.scrollUp').on('click', function() { index += -1; console.log('up', index); makeView()});
-        $(tableTag).find('.scrollDown').on('click', function() { index += 1; console.log('down', index); makeView()});        
-    }
-
-    var handlers = function(subset, segment) { 
-        // add a handler to move the data for topSubset and bottomSubset
-    }
-
-    makeView();
-
-    return {make: makeView}
 }

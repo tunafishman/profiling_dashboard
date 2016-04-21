@@ -46,47 +46,10 @@ window.base_api = "{{ api_url }}";
 window.s;
 Holder.add_theme("white", { background:"#fff", foreground:"#a7a7a7", size:10 });
 
-function grabSubsets(apiResponse, sortingKey) {
-    important_data = []
-    console.log('controls', controls, controls.breakout, controls.breakout == "");
-    for (segment in apiResponse) {
-        if ( controls.breakout == "" && $.isPlainObject(apiResponse[segment])) {
-            //add the subsets to the pile
-            add_segment = segment
-        } else if (controls.breakout != "" && segment == controls.breakout) {
-            //add the subsets to the (single) pile
-            add_segment = segment
-        } else {
-            //pass
-            add_segment = false
-        }
-        
-        if (add_segment) {
-            $.each(apiResponse[add_segment], function(i, subset_info) {
-                important_data.push([i, subset_info[sortingKey].toFixed(2), subset_info, add_segment])
-            })
-        }
-        
-        //sort the data by contribution
-        important_data.sort(function(a, b) { return b[1] - a[1] })
-    }
-    console.log('important', important_data)
-    return important_data
-}
-
-
 function makeGraphs(s) {
     //grab control information
     controls = s.read()
     
-    //update page url
-    //args = []
-    //for (key in controls) {
-    //    if (controls[key]) {
-    //       args.push(key + '=' + controls[key]) 
-    //    }
-    //}
-    //page_url = '?' + args.join('&')
     page_url = '?' + $.param(controls)
     console.log('url change', page_url)
     window.history.pushState(null, 'new graphs', page_url);
@@ -97,12 +60,156 @@ function makeGraphs(s) {
             .attr('title', data.final_grade.toFixed(2))
             .on('hover', function(){this.tooltip()});
             
-        contributors = contributor("#contributors .chart-stage", controls.selector, grabSubsets(data, 'grade_contribution'));
-            
-        missings = contributor("#missing .chart-stage", controls.selector, grabSubsets(data, 'missing_contribution')); 
+        contributors = contributor("#contributors .chart-stage", data, controls.selector, 'grade_contribution');
+        missing = contributor("#missing .chart-stage", data, controls.lselector, "missing_contribution")
     })
-
 };
+
+var contributor = function(id, data, scope, sortKey) {
+
+    var container = id;
+    var scope = scope;
+    var colors = {
+        'grade_contribution': '0,0,255',
+        'missing_contribution': '255,0,0',
+        'the_rest': '0,0,0'
+    }
+    var UNSELECTED_OPACITY = .4;
+    var HOVERS = {
+        'grade_contribution': 'The portion of ## traffic that is profile complete',
+        'missing_contribution': 'The portion of ## traffic that is not yet complete',
+        'the_rest': 'The portion of total traffic that is not ##'
+    }
+
+    if (['grade_contribution', 'missing_contribution'].indexOf(sortKey) >= 0) {
+        var sortKey = sortKey;
+    } else {
+        badsort = sortKey
+        console.log('invalid sort key specified: ', badsort);
+        console.log('reverting to grade_contribution');
+        var sortKey = 'grade_contribution';
+    }
+
+    var contributorData = grabSubsets(data, sortKey);
+    var index = 0;
+    var num_items = 15;
+
+    var baseModels = {
+        subset: "<tr class='contributorSubset'><td class='subset' style='width: 50%'></td><td class='stackbar' style='width:50%'></td></tr>",
+        pageUp: "<tr class='nav'><td><button class='pageUp'>previous</td></tr>",
+        pageDown: "<tr class='nav'><td><button class='pageDown'>next</td></tr>",
+    }
+    
+    var models = {
+        pageUp: "<tr>" + baseModels.pageUp + "</tr>",
+        subset: "<tr>" + baseModels.subset + "</tr>",
+        subsetDown: "<tr>" + baseModels.scrollDown + "</tr>" 
+    }
+
+    var makeView = function(){ 
+        table = $(container).empty()
+                    // create table structure.html( $("<table>").attr('width', '100%')
+                    .html($("<table/>").attr('width', '100%').append($.map(contributorData.slice(index, index+num_items), function(cont, i) {
+                                    return $(baseModels.subset).attr('subset', i)
+                                })))
+
+        tableTag = container + " table tbody";
+        
+        if (index !== 0) { //not looking at first page of contributors
+            //prepend 'previous'
+            $(baseModels.pageUp).insertBefore(tableTag + ' tr:first');
+        }
+        if (index + num_items < contributorData.length) { //there are more pages of contributors
+            //add a 'next' to the bottom
+            $(baseModels.pageDown).insertAfter(tableTag + ' tr:last');
+        }
+        // add information into that table
+        makeUseful(tableTag);
+    }
+
+    var makeUseful = function(tableTag) {
+        console.log('making useful', tableTag);
+        tableRows = $(tableTag).find('.contributorSubset'); // grab the rows
+        $.each(tableRows, function(i, tableRow) {
+            subset = contributorData[i+index][0];
+            grade_cont = contributorData[i+index][1];
+            total_info = contributorData[i+index][2];
+            segment = contributorData[i+index][3];
+            $(tableRow).find('.subset')
+                .text(subset)
+                .on('click', handlers(subset, segment, scope)); 
+            addBarChart($(tableRow).find('.stackbar'), subset, total_info)
+        })
+        $(tableTag).find('.pageUp').on('click', function() { index -= num_items; console.log('up', index); makeView()});
+        $(tableTag).find('.pageDown').on('click', function() { index += num_items; console.log('down', index); makeView()});        
+    }
+
+    var addBarChart = function(parentDiv, subset, totals) {
+
+        parentDiv.append($.map(['grade_contribution', 'missing_contribution'], function(item, index) { 
+            opacity = item == sortKey ? 1 : UNSELECTED_OPACITY;  
+            rgba_color = `rgba(${colors[item]},${opacity})`      
+            bar = $('<div/>')
+                .attr('class', 'grade')
+                .attr('title', HOVERS[item].replace("##", subset))
+                .css({
+                    'width': `${totals[item]}%`, 
+                    'background-color': rgba_color,
+                    'display': 'inline-block',
+                    'height': '20px'
+                })
+            return bar
+            })
+        )
+        parentDiv.append($('<div/>')
+            .attr('title', HOVERS['the_rest'].replace("##", subset))
+            .css({
+                'width': `${100 - (totals['grade_contribution']+totals['missing_contribution'])}%`,
+                'background-color': `rgba(${colors['the_rest']},${UNSELECTED_OPACITY})`,
+                'height': '20px',
+                'display': 'inline-block'
+            })
+        )
+    }
+    
+    var handlers = function(subset, segment) { 
+            // add a handler to move the data for topSubset and bottomSubset
+    }
+
+    function grabSubsets(apiResponse, sortingKey) {//including the `sortingKey` allows this function to work for both Contribution and Missing 
+
+        important_data = []
+        
+        for (segment in apiResponse) {
+            if ( controls.breakout == "" && $.isPlainObject(apiResponse[segment])) { //revisit the controls logic. This is troublesome going
+                                                                                     //back and forth from python to JS
+                //add the subsets to the pile
+                add_segment = segment
+            } else if (controls.breakout != "" && segment == controls.breakout) {
+                //add the subsets to the (single) pile
+                add_segment = segment
+            } else {
+                //pass
+                add_segment = false
+            }
+            
+            if (add_segment) {
+                $.each(apiResponse[add_segment], function(i, subset_info) {
+                    important_data.push([i, subset_info[sortingKey].toFixed(2), subset_info, add_segment])
+                })
+            }
+            
+            //sort the data by contribution
+            important_data.sort(function(a, b) { return b[1] - a[1] })
+        }
+        return important_data
+    }
+
+    makeView();
+
+    return {make: makeView}
+}
+
 </script>
 
 {% endblock %}

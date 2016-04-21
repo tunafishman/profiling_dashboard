@@ -33,9 +33,9 @@
         </select>
         <div style="width:100%; text-align:center"> ------------- </div>
         <ul id="pages">
-          <li id="dashboard"><a href="./">Dashboard</a></li>
+          <li id="dashboard"><a href='javascript:void(0);'>Dashboard</a></li>
           <li id="lifecycles">Lifecycles</li>
-          <li id="profiling"><a href="./profiling">Profiling</a></li>
+          <li id="profiling"><a href='javascript:void(0);'>Profiling</a></li>
         </ul>
       </div>
       <div id="segControls" style="width:88%; float:right">
@@ -47,6 +47,7 @@
     
     {% block module %}{% endblock %}
   <script>
+    window.base_api = "{{ api_url }}";
     $( window ).load( function () {
 
       //set up the cid selector
@@ -58,17 +59,37 @@
           data: customers
       })
 
+                
+
       $( "#cid" ).on("select2:select", function(yo) { 
           console.log('select', yo), 
-          selectedCid = yo.params.data ? yo.params.data.id : $("#cid").val() //ugh. Handle initial set in an ugly way :(
+          selectedCid = yo.params.data.id //? yo.params.data.id : $("#cid").val() //ugh. Handle initial set in an ugly way :(
           window.s = segControls( "#segControls", yo.params.data.id) 
           makeGraphs(s);
+          
       })
 
       $( "#fetch" ).on("click", function() {
           makeGraphs(s);
-      })
+      });
       
+      $( '#dashboard a' ).on('click', function() {
+          window.location.href = "./"
+      })
+
+      $( '#dashboard a' ).on('click', function() {
+          controls = typeof s != 'undefined' ? s.read() : '';
+          args = controls ? '?' + $.param(controls) : '';
+          link_url = "./" + args 
+          window.location.href = link_url;
+      })
+      $( '#profiling a' ).on('click', function() {
+          controls = typeof s != 'undefined' ? s.read() : '';
+          args = controls ? '?' + $.param(controls) : '';
+          link_url = "./profiling" + args 
+          window.location.href = link_url;
+      })
+
       //handle url params if they exist 
       {% if page_state.cid %}
       $( "#cid" ).val("{{ page_state.cid }}").change()
@@ -76,8 +97,9 @@
       breakout = "{{ page_state.breakout }}" != "False" ? "{{ page_state.breakout }}" : false;
       window.s = segControls ( "#segControls", "{{page_state.cid}}") 
       s.set(selected, breakout, function() { makeGraphs(s); })
+
       {% endif %}
-     
+
     });
   </script>
 
