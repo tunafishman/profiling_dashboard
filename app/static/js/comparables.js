@@ -515,6 +515,7 @@ var segControls = function(id, cid) {
                 segOption = $.grep(segments, function(segment) { return segment.value == rowInfo.segment })
                 logicOption = $.grep(logics, function(comparator) { return comparator.value == rowInfo.logic })
                 
+                console.log(logicOption)
                 if (logicOption[0].value.indexOf('in') > -1) {
                     console.log('We have a list', rowInfo.value)
                     rowInfo.value = rowInfo.value.replace('(','').replace(')','').split(',')

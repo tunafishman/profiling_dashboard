@@ -170,7 +170,17 @@ var contributor = function(id, data, scope, sortKey) {
             // add a handler to move the data for topSubset and bottomSubset
             return function() {
                 currentControls = window.s.read()
-                window.s.set(`${currentControls['selector']} and ${segment} = ${subset}`, currentControls['breakout'], function() {makeGraphs(window.s);})
+                if (currentControls.selector) { //add new selector phrase
+                    newSelect = `${currentControls.selector} and ${segment} = ${subset}`
+                } else {
+                    newSelect = `${segment} = ${subset}`
+                }
+                if (currentControls.breakout == segment) {//if selecting from a breakout, don't continue to breakout (will have only one slice)
+                    newBreakout = ''
+                } else {
+                    newBreakout = currentControls.breakout
+                }
+                window.s.set(newSelect, newBreakout, function() {makeGraphs(window.s);})
             }
     }
 
