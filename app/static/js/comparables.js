@@ -433,6 +433,7 @@ var segControls = function(id, cid) {
 
     var readControls = function() {
         selectors = new Array;
+        breakout = new String();
 
         $.map(rows, function(row) {
             if (row.type == 'filter') {

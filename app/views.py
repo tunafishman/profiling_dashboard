@@ -364,7 +364,7 @@ def appraisal(records, gain_threshhold):
     print "appraising this many comparables", len(records)
 
     profile = {}
-    profile_keys = ['network', 'geo', 'size', 'content_type', 'url_domain', 'schema']
+    profile_keys = ['network', 'geo', 'size', 'content_type', 'url_domain', 'schema', 'sdk_version']
 
     subset_placeholder = {
             'total_subsets': 0,
@@ -473,7 +473,8 @@ def grading(cid):
         'size': {},
         'content_type': {},
         'url_domain': {},
-        'schema': {}
+        'schema': {},
+        'sdk_version': {}
        }
 
     for segment in profile:

@@ -61,7 +61,7 @@ function makeGraphs(s) {
             .on('hover', function(){this.tooltip()});
             
         contributors = contributor("#contributors .chart-stage", data, controls.selector, 'grade_contribution');
-        missing = contributor("#missing .chart-stage", data, controls.lselector, "missing_contribution")
+        missing = contributor("#missing .chart-stage", data, controls.selector, "missing_contribution")
     })
 };
 
@@ -99,12 +99,6 @@ var contributor = function(id, data, scope, sortKey) {
         pageUp: "<tr class='nav'><td><button class='pageUp'>previous</td></tr>",
         pageDown: "<tr class='nav'><td><button class='pageDown'>next</td></tr>",
     }
-    
-    var models = {
-        pageUp: "<tr>" + baseModels.pageUp + "</tr>",
-        subset: "<tr>" + baseModels.subset + "</tr>",
-        subsetDown: "<tr>" + baseModels.scrollDown + "</tr>" 
-    }
 
     var makeView = function(){ 
         table = $(container).empty()
@@ -137,7 +131,7 @@ var contributor = function(id, data, scope, sortKey) {
             segment = contributorData[i+index][3];
             $(tableRow).find('.subset')
                 .text(subset)
-                .on('click', handlers(subset, segment, scope)); 
+                .on('click', addSelect(subset, segment, scope)); 
             addBarChart($(tableRow).find('.stackbar'), subset, total_info)
         })
         $(tableTag).find('.pageUp').on('click', function() { index -= num_items; console.log('up', index); makeView()});
@@ -172,8 +166,12 @@ var contributor = function(id, data, scope, sortKey) {
         )
     }
     
-    var handlers = function(subset, segment) { 
+    var addSelect = function(subset, segment) { 
             // add a handler to move the data for topSubset and bottomSubset
+            return function() {
+                currentControls = window.s.read()
+                window.s.set(`${currentControls['selector']} and ${segment} = ${subset}`, currentControls['breakout'], function() {makeGraphs(window.s);})
+            }
     }
 
     function grabSubsets(apiResponse, sortingKey) {//including the `sortingKey` allows this function to work for both Contribution and Missing 
