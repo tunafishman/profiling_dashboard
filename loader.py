@@ -28,7 +28,7 @@ class VerticaLoader():
         bigs = [91, 90, 30, 3524]
         if self.cid in bigs:
             self.dbname = "SQLEngBig"
-        elif self.cid in [4035, 4094]:
+        elif self.cid in [3795, 4035, 4094]:
             self.dbname = "SQLEng3"
         else:
             self.dbname = "SQLEng"

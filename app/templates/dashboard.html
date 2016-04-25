@@ -98,8 +98,8 @@ Holder.add_theme("white", { background:"#fff", foreground:"#a7a7a7", size:10 });
 
 //put the code for this module inside makeGraphs
 //the "Run" button will call this function to update the page
-function makeGraphs(s) {
-    controls = s.read()
+function makeGraphs() {
+    controls = window.s.read()
     page_url = '?' + $.param(controls)
     console.log('new page url', page_url)
     window.history.pushState(null, 'new graphs', page_url);

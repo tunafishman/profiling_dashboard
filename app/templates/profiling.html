@@ -46,9 +46,9 @@ window.base_api = "{{ api_url }}";
 window.s;
 Holder.add_theme("white", { background:"#fff", foreground:"#a7a7a7", size:10 });
 
-function makeGraphs(s) {
+function makeGraphs() {
     //grab control information
-    controls = s.read()
+    controls = window.s.read()
     
     page_url = '?' + $.param(controls)
     console.log('url change', page_url)
@@ -175,12 +175,8 @@ var contributor = function(id, data, scope, sortKey) {
                 } else {
                     newSelect = `${segment} = ${subset}`
                 }
-                if (currentControls.breakout == segment) {//if selecting from a breakout, don't continue to breakout (will have only one slice)
-                    newBreakout = ''
-                } else {
-                    newBreakout = currentControls.breakout
-                }
-                window.s.set(newSelect, newBreakout, function() {makeGraphs(window.s);})
+                newBreakout = false;
+                window.s.set(newSelect, newBreakout, makeGraphs);
             }
     }
 

@@ -530,6 +530,7 @@ var segControls = function(id, cid) {
         }
 
         if (breakout) {
+            console.log(breakout, breakoutSegment);
             segOption = $.grep(segments, function(segment) { return segment.value == breakout })
             rows.push({type: "breakoutPlus", segment: segOption[0].id})
             makeControls();
