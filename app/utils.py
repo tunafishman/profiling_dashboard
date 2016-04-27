@@ -364,7 +364,6 @@ FROM (
                   WHERE    datetime > '{start_date}'
                   AND      datetime < '{end_date}'
                   AND      cid = {cid}
-                  {guid_string}
                   AND      network IS NOT NULL
                   AND      geo IS NOT NULL
                   AND      url_domain IS NOT NULL
