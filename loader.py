@@ -26,9 +26,10 @@ class VerticaLoader():
 
     def dbCidMap(self):
         bigs = [91, 90, 30, 3524]
+        alternates = [3795, 4035, 4094]
         if self.cid in bigs:
             self.dbname = "SQLEngBig"
-        elif self.cid in [3795, 4035, 4094]:
+        elif self.cid in alternates:
             self.dbname = "SQLEng3"
         else:
             self.dbname = "SQLEng"
@@ -41,15 +42,17 @@ class VerticaLoader():
         self.connectedDb = self.dbname
         print "connected db", self.dbname
 
-    def Query(self, cid, start_date='', end_date='', limit=500):
+    def Query(self, cid, guid, start_date='', end_date='', limit=500):
         self.cid = cid
+        self.guid = guid
         self.test()
 
         formatter = self.queryScrub({
             'start_date': start_date,
             'end_date': end_date,
             'limit': limit,
-            'cid': self.cid
+            'cid': self.cid,
+            'guid': self.guid
             })
 
         self.currentStart = formatter['start_date']
@@ -65,6 +68,7 @@ class VerticaLoader():
         # default to grabbing yesterday's data
         scrubbed = {
             'cid': details['cid'],
+            'guid_string': "AND     app_guid_int = {}\n".format(details['guid']) if not details['guid'] == "*" else "",
             'start_date': details.get('start_date', datetime.date.today() - datetime.timedelta(days=1)).isoformat(),
             'end_date': details.get('end_date', datetime.date.today()).isoformat(),
             'limit': details.get('limit')
@@ -73,10 +77,10 @@ class VerticaLoader():
 
     def ReduceResults(self):
         hash_grouped = {}
-        id_keys = ['network', 'geo', 'url_domain', 'size', 'content_type', 'url_schema', 'sdk_version'] 
+        id_keys = ['network', 'geo', 'url_domain', 'size', 'content_type', 'url_schema', 'sdk_version', 'app_guid_int'] 
 
         for row in self.rows:
-            hash_string = "&".join(["=".join([key, row[key]]) for key in id_keys])
+            hash_string = "&".join(["=".join([key, str(row[key])]) for key in id_keys])
             tpclass = row['class']
             exists = hash_grouped.get(hash_string, False)
             if not exists:
@@ -196,7 +200,8 @@ class VerticaLoader():
                 'num_exception_records': comparable['num_exception_records'],
                 'comparability': comparable['comparability'],
                 'fail_reason': comparable.get('fail_reason', None),
-                'reduced_date': self.currentStart
+                'reduced_date': self.currentStart,
+                'app_guid': comparable['id']['app_guid_int']
                 }
 
             byp_metrics, acc_metrics = comparable['metrics'].get('byp', {}), comparable['metrics'].get('acc', {})
@@ -233,14 +238,17 @@ class VerticaLoader():
 
         print "{} rows deleted".format(num_rows_deleted)
 
-    def DailyJobs(self, cid, num_days, end=datetime.datetime.now()):
+    def DailyJobs(self, cid, guid, num_days, end=datetime.datetime.now()):
         ''' create a set of jobs to process for daily aggregation '''
-        print "Grabbing the last {} days for cid {}".format(num_days, cid)
+        if not guid == "*":
+            print "Grabbing the last {} days for cid {} (app {})".format(num_days, cid, guid)
+        else:
+            print "Grabbing the last {} days for all guids in cid {}".format(num_days, cid)
         today = datetime.date.today()
         dates = [ (today - datetime.timedelta(days=n), today - datetime.timedelta(days=n+1)) for n in range(0, num_days) ]
 
         for job in dates:
-            self.Query( cid, job[1], job[0], 500000 )
+            self.Query( cid, guid, job[1], job[0], 500000 )
             print "vertica query for {} - {} to {} with {}".format(job[1], job[0], self.dbname, self.cursor)
             self.ReduceResults()
             self.LoadToProduction()
@@ -267,14 +275,20 @@ if __name__ == "__main__":
 
     if cid != "auto":
         try:
-            cids = [int(cid)]
+            input_cid = int(cid)
+            lookup = customers.cidToName.get(input_cid, False)
+            if lookup:
+                cids = [(input_cid, lookup)]
+            else:
+                cids = [(input_cid, {'apps': {'*':""}})]
         except:
             print "invalid cid specified"
             exit()
     else:
-        cids = sorted(customers.cidToName.keys())
+        cids = [cid_info for cid_info in customers.cidToName.items()]
     
     tplog = VerticaLoader(credentials.vertica_endpoint, credentials.vertica_dbname,
                     credentials.vertica_port, credentials.vertica_user, credentials.vertica_pass, endpoint_big  = credentials.vertica_endpoint_big)
     for cid in cids:
-        tplog.DailyJobs(cid, num_days)
+        for guid in cid[1]['apps'].keys():
+            tplog.DailyJobs(cid[0], guid, num_days)

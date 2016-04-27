@@ -20,4 +20,5 @@ class ReducedRow(db.Model):
     reduced_date = db.Column(db.DateTime)
     schema = db.Column(db.String(20))
     sdk_version = db.Column(db.String(50))
+    app_guid = db.Column(db.String(40))
 

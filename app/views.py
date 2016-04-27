@@ -37,8 +37,11 @@ class Timer():
 @app.route('/index')
 def index():
     details = request.args
+    guid = details.get("guid", False)
+    cid = details.get("cid", False) if guid else False
     page_state = {
-        "cid": details.get("cid", False),
+        "cid": cid,
+        "guid": guid,
         "selector": details.get("selector", False),
         "breakout": details.get("breakout", False)
     }
@@ -122,13 +125,27 @@ def queryFilter(base_query, selector_string):
     return {'results': fq.all()}
 
 def cids():
-    base = models.db.session.query(models.ReducedRow.cid).distinct().all()
-    cids = sorted([item.cid for item in base])
-    cidlist = [{'name': customers.cidToName.get(cid, cid), 'cid':cid} for cid in cids]
+    baser = models.db.session.query(models.ReducedRow).distinct(models.ReducedRow.app_guid).all()
+    customerInfo = {}
+    for item in baser: 
+        cid = item.cid
+        app_guid = item.app_guid
+        if not customerInfo.get(cid, False):
+            customerInfo[cid] = {
+                    'name': customers.cidToName.get(cid, {}).get('name', cid),
+                    'apps': {
+                            app_guid: customers.cidToName.get(cid, {}).get('apps', {}).get(app_guid, app_guid)
+                            }
+                    }
+        else:
+            customerInfo[cid]['apps'].update({app_guid: customers.cidToName.get(cid, {}).get('apps', {}).get(app_guid, app_guid)})
+
+    cids = sorted([cid for cid in customerInfo])
+    cidlist = [{'name': customerInfo[cid]['name'], 'cid':cid, 'apps': [{'name': customerInfo[cid]['apps'][guid], 'guid': guid} for guid in customerInfo[cid]['apps']]} for cid in cids]
     return cidlist
 
-@app.route('/api/v1/<cid>/values')
-def values(cid):
+@app.route('/api/v1/<guid>/values')
+def values(guid):
     details = request.args
     segment = details.get('segment', False) #a segment is required to grab values
     selector = details.get('selector', '')
@@ -138,7 +155,7 @@ def values(cid):
     else:
         segment = api_breakouts[segment]
 
-    base = models.ReducedRow.query.filter_by(cid=cid)
+    base = models.ReducedRow.query.filter_by(app_guid=guid)
     filtered = queryFilter(base, selector)
 
     if filtered.get('error', False):
@@ -151,8 +168,8 @@ def values(cid):
 
     return jsonify({'segment': segment, 'total': sum([x[1] for x in results_agg.items()]), 'values': dict(results_agg)})
 
-@app.route('/api/v1/<cid>/comparables/')
-def comparables(cid):
+@app.route('/api/v1/<guid>/comparables/')
+def comparables(guid):
     details = request.args
     breakout = details.get('breakout', '')
 
@@ -164,7 +181,7 @@ def comparables(cid):
     comp = details.get('comparable', 'false').lower() == 'true'
     selector = details.get('selector', '')
 
-    base = models.ReducedRow.query.filter_by(cid=cid)
+    base = models.ReducedRow.query.filter_by(app_guid=guid)
     if comp:
         base.filter_by(comparability="True")
 
@@ -189,8 +206,8 @@ def comparables(cid):
 
     return jsonify({'key': 'comparables', 'values': results_agg}) 
 
-@app.route('/api/v1/<cid>/gains/')
-def gains(cid):
+@app.route('/api/v1/<guid>/gains/')
+def gains(guid):
     gain_timer = Timer('gains request')
     gain_timer.Start()
 
@@ -204,7 +221,7 @@ def gains(cid):
     
     query_timer = Timer('gains query')
     query_timer.Start()
-    base = models.ReducedRow.query.filter_by(cid=cid).filter_by(comparability="True")
+    base = models.ReducedRow.query.filter_by(app_guid=guid).filter_by(comparability="True")
     filtered = queryFilter(base, details.get('selector', ''))
     query_timer.End()
     query_timer.Log()
@@ -227,19 +244,22 @@ def gains(cid):
         temp[subset]['boltzmann_factor'] += float(entry.gain) * float(entry.num_comparable_records)
 
     total_comp, total_num = sum([temp[subset]['comp_records'] for subset in temp.keys()]), sum([temp[subset]['total_records'] for subset in temp.keys()])
-    print 'total records considered: {}, total records comparable: {}, {}%'.format(total_num, total_comp, 100*total_comp/total_num)
+    if total_num:
+        print 'total records considered: {}, total records comparable: {}, {}%'.format(total_num, total_comp, 100*total_comp/total_num)
     temp['total_comp_records'] = total_comp
     temp['total_num_records'] = total_num
 
     to_return = []
-    for tpslice in filter(lambda x: x not in ['total_comp_records', 'total_num_records'], temp.keys()):
-        temp_return = {
-            'label': tpslice,
-            'value': temp[tpslice]['boltzmann_factor'] / temp[tpslice]['comp_records'],
-            'portion': temp[tpslice]['comp_records'] / temp['total_comp_records'],
-            'significance': temp[tpslice]['comp_records'] / temp[tpslice]['total_records']
-            }
-        to_return.append(temp_return)
+    if total_comp:
+        for tpslice in filter(lambda x: x not in ['total_comp_records', 'total_num_records'], temp.keys()):
+            if (temp[tpslice]['comp_records'] and temp[tpslice]['total_records']):
+                temp_return = {
+                    'label': tpslice,
+                    'value': temp[tpslice]['boltzmann_factor'] / temp[tpslice]['comp_records'],
+                    'portion': temp[tpslice]['comp_records'] / temp['total_comp_records'],
+                    'significance': temp[tpslice]['comp_records'] / temp[tpslice]['total_records']
+                    }
+                to_return.append(temp_return)
     gain_massage.End()
     gain_massage.Log()
 
@@ -247,14 +267,14 @@ def gains(cid):
     gain_timer.Log()
     return jsonify({'key': 'gains', 'values': to_return})
 
-@app.route('/api/v1/<cid>/histogram/')
-def histogram(cid):
+@app.route('/api/v1/<guid>/histogram/')
+def histogram(guid):
     starttime = time.time()
     details = request.args
     selector = details.get('selector', '')
     comparable_query = request.args.get('comparable', False)
 
-    base_query  = models.ReducedRow.query.filter_by(cid=cid)
+    base_query  = models.ReducedRow.query.filter_by(app_guid=guid)
     filtered = queryFilter(base_query, selector)
 
     if filtered.get('error', False):
@@ -286,8 +306,8 @@ def histogram(cid):
 
     return jsonify({'histograms': to_return})
 
-@app.route('/api/v1/<cid>/lifecycle/')
-def lifecycle(cid):
+@app.route('/api/v1/<guid>/lifecycle/')
+def lifecycle(guid):
     starttime = time.time()
     details = request.args
     selector = details.get('selector', '')
@@ -301,7 +321,7 @@ def lifecycle(cid):
     
     perc_base = {'byp': {'fbu': defaultdict(float), 'dcu': defaultdict(float)}}
 
-    base_query = models.ReducedRow.query.filter_by(cid=cid)
+    base_query = models.ReducedRow.query.filter_by(app_guid=guid)
 
     if comparable_query:
         base_query.filter_by(comparability=True)
@@ -410,8 +430,8 @@ def appraisal(records, gain_threshhold):
 
     return profile
 
-@app.route('/api/v1/<cid>/profiling')
-def profiling_api(cid):
+@app.route('/api/v1/<guid>/profiling')
+def profiling_api(guid):
     profile_timer = Timer('profile')
     profile_timer.Start()
 
@@ -424,7 +444,7 @@ def profiling_api(cid):
     except ValueError:
         return "invalid cutoff specified"
 
-    base_query  = models.ReducedRow.query.filter_by(cid=cid)
+    base_query  = models.ReducedRow.query.filter_by(app_guid=guid)
     filtered = queryFilter(base_query, selector)
 
     if filtered.get('error', False):
@@ -436,8 +456,8 @@ def profiling_api(cid):
     profile_timer.Log()
     return jsonify(profile)
 
-@app.route('/api/v1/<cid>/grading')
-def grading(cid):
+@app.route('/api/v1/<guid>/grading')
+def grading(guid):
     grading_timer = Timer('profile')
     grading_timer.Start()
 
@@ -450,7 +470,7 @@ def grading(cid):
     except ValueError:
         return "invalid cutoff specified"
 
-    base_query = models.ReducedRow.query.filter_by(cid=cid)
+    base_query = models.ReducedRow.query.filter_by(app_guid=guid)
     filtered = queryFilter(base_query, selector)
 
     if filtered.get('error', False):

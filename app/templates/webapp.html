@@ -26,11 +26,14 @@
   <div class="container-fluid">
     <div id="controls" style="width:100%; overflow:auto">
       <div id="internalNav" style="width:10%; float:left">
-        <select id="cid" style="width:100%">
-        <!--{% for item in customers %}
-        <option value={{ item.cid }}>{{ item.name }}</option>
-        {% endfor %}-->
-        </select>
+        <div id="customerSelect">
+          <span>Customer</span>
+          <select id="cid" style="width:100%"></select>
+        </div>
+        <div id="appSelect" style="display:none">
+          <span>App</span>
+          <select id="guid" style="width:100%; float:left"></select>
+        </div>
         <div style="width:100%; text-align:center"> ------------- </div>
         <ul id="pages">
           <li id="dashboard"><a href='javascript:void(0);'>Dashboard</a></li>
@@ -38,7 +41,10 @@
           <li id="profiling"><a href='javascript:void(0);'>Profiling</a></li>
         </ul>
       </div>
-      <div id="segControls" style="width:88%; float:right">
+      <div id="segContainer" style="width:88%; float:right">
+        <span>Segmentation Controls</span>
+        <div id="segControls">
+        </div>
       </div>
       <div style="text-align:center">
         <input id="fetch" type="button" value="Run" />
@@ -51,23 +57,38 @@
     $( window ).load( function () {
 
       //set up the cid selector
-      customers = {{ customers|tojson }}.map( function(item) {return {id: item.cid, text: item.name} } )
+      customers = {{ customers|tojson }}
+      console.log(customers)
 
-      customers.unshift("") //select2 works with a placeholder only with explicit blank option at the top
+      cids = customers.map( function(item) { return { id: item.cid, text: item.name} } )
+      cids.unshift("") //select2 works with a placeholder only with explicit blank option at the top
       $( "#cid" ).select2({
           placeholder: "Select a customer",
-          data: customers
+          data: cids
       })
 
-                
-
-      $( "#cid" ).on("select2:select", function(yo) { 
-          console.log('select', yo), 
-          selectedCid = yo.params.data.id //? yo.params.data.id : $("#cid").val() //ugh. Handle initial set in an ugly way :(
-          window.s = segControls( "#segControls", yo.params.data.id) 
-          makeGraphs(s);
+      $( "#cid" )
+        .on("select2:select", function(yo) { 
+          console.log('select', yo) 
+          selectedCid = typeof yo.params !== 'undefined' ? yo.params.data.id : $("#cid").val() //ugh. Handle initial set in an ugly way :(
           
-      })
+          selectedGuids = $.map(customers.filter( function(item) { return item.cid == selectedCid })[0].apps || {}, function(app, index) { return { id: app.guid, text: app.name }}) 
+          selectedGuids.unshift("")
+          $( "#appSelect" ).css({"display": "inline"})
+          $( "#guid" )
+            .empty()
+            .select2({
+              placeholder: "Select an app",
+              data: selectedGuids
+              })
+            .on("select2:select", function(selectEvent) {
+              console.log('select guid', selectEvent);
+              selectedGuid = typeof selectEvent.params !== 'undefined' ? selectEvent.params.data.id : $("#guid").val()
+              console.log('selected', selectedGuid)
+              window.s = segControls( "#segControls", {cid: selectedCid, guid: selectedGuid}) 
+              makeGraphs();
+              })
+        })
 
       $( "#fetch" ).on("click", function() {
           makeGraphs(s);
@@ -90,12 +111,14 @@
           window.location.href = link_url;
       })
 
-      //handle url params if they exist 
-      {% if page_state.cid %}
-      $( "#cid" ).val("{{ page_state.cid }}").change()
+      //handle url params if they exist
+      //(guid will only exist if cid is also set) 
+      {% if page_state.guid %}
+      $( "#cid" ).val("{{ page_state.cid }}").change().trigger("select2:select")
+      $( "#guid" ).val("{{ page_state.guid }}").change().trigger("select2:select")
       selected = "{{ page_state.selector }}" != "False" ? "{{ page_state.selector }}" : false;
       breakout = "{{ page_state.breakout }}" != "False" ? "{{ page_state.breakout }}" : false;
-      window.s = segControls ( "#segControls", "{{page_state.cid}}") 
+      window.s = segControls ( "#segControls", {cid: "{{page_state.cid}}", guid: "{{page_state.guid}}"}) 
       s.set(selected, breakout, function() { makeGraphs(s); })
 
       {% endif %}

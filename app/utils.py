@@ -9,6 +9,7 @@ redshift_query = \
          partition7 as url_schema,
          partition8 as bin,
          partition9 AS class,
+         partition10 as app_guid_int,
          count(*) AS bin_count,
          max(perc25_fbu)   AS perc25_fbu,
          max(perc25_dcu)   AS perc25_dcu,
@@ -133,6 +134,7 @@ FROM (
                                     WHEN dcu >= 4000 THEN '>4000'
                            END AS partition8,
                            class AS partition9,
+                           app_guid_int as partition10,
                            percentile_cont(0.25) within GROUP (ORDER BY size) OVER (partition BY network, geo, url_domain, content_type, sdk_version, url_schema,
                            CASE
                                     WHEN size < 10000 THEN 'Small'
@@ -362,6 +364,7 @@ FROM (
                   WHERE    datetime > '{start_date}'
                   AND      datetime < '{end_date}'
                   AND      cid = {cid}
+                  {guid_string}
                   AND      network IS NOT NULL
                   AND      geo IS NOT NULL
                   AND      url_domain IS NOT NULL
@@ -376,7 +379,8 @@ GROUP BY partition1,
          partition6,
          partition7,
          partition8,
-         class
+         partition9,
+         partition10
 ORDER BY partition1,
          partition2,
          partition3,
@@ -385,7 +389,8 @@ ORDER BY partition1,
          partition6,
          partition7,
          partition8,
-         class
+         partition9,
+         partition10
 LIMIT {limit};"""
 
 content_types = {

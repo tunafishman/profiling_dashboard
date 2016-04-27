@@ -1,7 +1,8 @@
-function api_query(cid, endpoint, args) {
+function api_query(app_info, endpoint, args) {
     //if (!(endpoint == 'gains' || endpoint == 'histogram' || endpoint == 'comparables' || endpoint == 'lifecycle' || endpoint == 'values')) { return {} }
+    console.log('butts', app_info, endpoint)
 
-    api_url = [window.base_api, cid, endpoint].join('/')
+    api_url = [window.base_api, app_info.guid, endpoint].join('/')
     xhr = $.ajax({
         url: api_url,
         type: "get",
@@ -16,20 +17,20 @@ function api_query(cid, endpoint, args) {
 //}
 
 function makeGains( id, controls) {
-    api_query(controls.cid, 'gains', {selector: controls.selector, breakout: controls.breakout}).done(function(data){
+    api_query( {guid: controls.guid}, 'gains', {selector: controls.selector, breakout: controls.breakout}).done(function(data){
         addBreakout(id, breakout_map(data));
     });
 };
 
 function makePopulation( id, controls) {
-    api_query(controls.cid, 'histogram', {selector: controls.selector, comparable: true}).done(function(data){
+    api_query( {guid: controls.guid}, 'histogram', {selector: controls.selector, comparable: true}).done(function(data){
         var hist = hist_map(data.histograms)
         addHist(id, hist);
     });
 };
 
 function makeBreakout( id, controls) {
-    api_query(controls.cid, 'comparables', {selector:controls.selector, breakout:controls.breakout}).done( function(data) {
+    api_query( {guid: controls.guid}, 'comparables', {selector:controls.selector, breakout:controls.breakout}).done( function(data) {
         addBreakout(id, breakout_map(data));
     });
 }
@@ -173,10 +174,11 @@ function addBreakout(id, data) {
 
 //UI Selectboxes
 
-var segControls = function(id, cid) {
+var segControls = function(id, app_info) {
 
     var container = id
-    var customer = cid
+    var customer = app_info.cid
+    var app_guid = app_info.guid
     var segments = [
         "",
         {id:1, text:"Network", value:"network"},
@@ -350,7 +352,7 @@ var segControls = function(id, cid) {
             //store them in the `rows` control state variable as a cache
             rowSegment = segments[rows[rowNum].segment].value
             
-            api_query( customer, 'values', {segment: rowSegment}).done( function(data) {
+            api_query( {cid: customer, guid: app_guid}, 'values', {segment: rowSegment}).done( function(data) {
 
                 rows[rowNum].values = formatOptions(data)
                 
@@ -461,7 +463,8 @@ var segControls = function(id, cid) {
         return {
             'selector': selectors.join(" and "),
             'breakout': breakout,
-            'cid': customer
+            'cid': customer,
+            'guid': app_guid
         }
 
     };
