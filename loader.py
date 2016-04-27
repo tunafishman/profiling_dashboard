@@ -74,7 +74,7 @@ class VerticaLoader():
         id_keys = ['network', 'geo', 'url_domain', 'size', 'content_type', 'url_schema', 'sdk_version', 'app_guid_int'] 
 
         for row in self.rows:
-            hash_string = "&".join(["=".join([key, str(row[key])]) for key in id_keys])
+            hash_string = "&".join(["{key}={this_key}".format(key=key, this_key=str(row[key])) for key in id_keys])
             tpclass = row['class']
             exists = hash_grouped.get(hash_string, False)
             if not exists:

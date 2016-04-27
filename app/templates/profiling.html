@@ -54,7 +54,7 @@ function makeGraphs() {
     console.log('url change', page_url)
     window.history.pushState(null, 'new graphs', page_url);
 
-    api_query(controls.cid, 'grading', controls).done( function(data) { 
+    api_query({cid: controls.cid, guid: controls.guid}, 'grading', controls).done( function(data) { 
         
         $("#grade").text(data.final_letter_grade)
             .attr('title', data.final_grade.toFixed(2))

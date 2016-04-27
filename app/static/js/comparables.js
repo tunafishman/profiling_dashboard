@@ -456,7 +456,7 @@ var segControls = function(id, app_info) {
                 //the ternary is required because select2 needs a blank object at the 0 position
                 //which means a .value attribute won't be set for breakout argument
                 //on page loads with only a cid specified
-                breakout = row.segment != 0 ? segments[row.segment].value : ""
+                breakout = (row.segment && row.segment != 0) ? segments[row.segment].value : ""
             } else {}
         })
         

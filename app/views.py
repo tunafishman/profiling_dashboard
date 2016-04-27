@@ -66,8 +66,11 @@ def segboxes():
 @app.route('/life')
 def life():
     details = request.args
+    guid = details.get("guid", False)
+    cid = details.get("cid", False) if guid else False
     page_state = {
-        "cid": details.get("cid", False),
+        "cid": cid,
+        "guid": guid,
         "selector": details.get("selector", False),
         "breakout": details.get("breakout", False)
     }
@@ -76,8 +79,11 @@ def life():
 @app.route('/profiling')
 def profiling():
     details = request.args
+    guid = details.get("guid", False)
+    cid = details.get("cid", False) if guid else False
     page_state = {
-        "cid": details.get("cid", False),
+        "cid": cid,
+        "guid": guid,
         "selector": details.get("selector", False),
         "breakout": details.get("breakout", False)
     }
