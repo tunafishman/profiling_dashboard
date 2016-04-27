@@ -1,6 +1,5 @@
 function api_query(app_info, endpoint, args) {
     //if (!(endpoint == 'gains' || endpoint == 'histogram' || endpoint == 'comparables' || endpoint == 'lifecycle' || endpoint == 'values')) { return {} }
-    console.log('butts', app_info, endpoint)
 
     api_url = [window.base_api, app_info.guid, endpoint].join('/')
     xhr = $.ajax({
