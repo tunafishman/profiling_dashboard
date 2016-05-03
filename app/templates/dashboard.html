@@ -89,6 +89,7 @@
 
 
 <script type="text/javascript" src="static/libs/holder/holder.js"></script>
+<script type="text/javascript" src="static/libs/plotly/plotly-latest.min.js"></script>
 <script>
 
 
@@ -110,9 +111,75 @@ function makeGraphs() {
     breakout_div = "#grid-2-3"
 
     makeGains(gains_div, controls);
-    makePopulation(population_div, controls)
+    //makePopulation(population_div, controls)
     makeBreakout(breakout_div, controls)
+    api_query('histogram', { guid: controls.guid, selector: controls.selector, breakout: controls.breakout, comparable: true}).done( function(data) { histogram( "grid-1-1", data ) })
 };
+
+function histogram(histogram_div, data) {
+    var container = histogram_div;
+    var global_total = data.total;
+
+    var index = 0;
+    var num_items = 5;
+
+    var all_data = data.series.sort(function(a, b) { return b.sub_total - a.sub_total })
+    var to_plot = $.map(all_data.slice(index, index+num_items), function( info, i ) { return info })
+    console.log('all', all_data, 'to_plot', to_plot);
+
+    var slice_offset = 1;
+    var acc_byp_offset = .1;
+
+    data = []
+    $.each(to_plot, function(slice_index, item) {
+        console.log('hi', item);
+        slice_weight = item.sub_total / global_total
+        $.each(['acc', 'byp'], function(class_index, tpclass) {
+            console.log(class_index, tpclass, item);
+            this_hist = typeof item[tpclass] != 'undefined' ? item[tpclass] : false;
+            if (this_hist) {
+                tpclass_total = $.map(item[tpclass], function(pairs, i) {return pairs.y}).reduce(function(pv, cv) {return pv + cv})
+            } else {
+                console.log('boop');
+                return
+            }
+            this_hist.sort(function(a,b){return a.x - b.x})
+
+            console.log('tpclass', 'total', tpclass_total);
+            temp_trace = {
+                x: [],
+                y: [],
+                z: [],
+                type: 'scatter3d',
+                name: item.slice,
+                mode: 'lines'
+            }
+
+            added_total = 0;
+            bucket_index = 0;
+            trace_index = slice_offset * slice_index + class_index * acc_byp_offset
+            while ( bucket_index < this_hist.length && (added_total / tpclass_total) < .8 ) {
+                pair = this_hist[bucket_index];
+                temp_trace.x.push(trace_index);
+                temp_trace.y.push(pair.x);
+                temp_trace.z.push(pair.y*slice_weight/tpclass_total);
+                added_total += pair.y;
+                bucket_index += 1;
+            }
+            console.log('yo?', temp_trace);
+            data.push(temp_trace);
+
+        //var details = {x:[], y:[], z:[], type: 'scatter3d'}
+
+        })
+    })
+    var layout = {
+        width: 900,
+        height: 600
+    };
+    Plotly.newPlot(container, data, layout);
+    //console.log('shmoop', data);
+}
 </script>
 
 {% endblock %}

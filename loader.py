@@ -23,7 +23,7 @@ class VerticaLoader():
 
     def dbCidMap(self):
         bigs = [91, 90, 30, 3524]
-        alternates = [3795, 4035, 4094]
+        alternates = [3795, 4035, 4094, 4136]
         if self.cid in bigs:
             self.dbname = "SQLEngBig"
         elif self.cid in alternates:

@@ -50,13 +50,14 @@ def index():
 @app.route('/test')
 def test():
     details = request.args
+    guid = details.get("guid", False)
+    cid = details.get("cid", False) if guid else False
     page_state = {
-        "cid": details.get('cid', False),
-        "selector": details.get('selector', False),
-        "breakout": details.get('breakout', False)
-        }
-    print page_state
-    print app.config['API_URL']
+        "cid": cid,
+        "guid": guid,
+        "selector": details.get("selector", False),
+        "breakout": details.get("breakout", False)
+    }    
     return render_template("plotlytest.html", customers = cids(), api_url = app.config['API_URL'], page_state = page_state)
 
 @app.route('/segboxes')
@@ -278,6 +279,13 @@ def histogram(guid):
     starttime = time.time()
     details = request.args
     selector = details.get('selector', '')
+    breakout = details.get('breakout', '')
+
+    if breakout not in api_breakouts:
+        return "Break not my api"
+    else:
+        breakout = api_breakouts[breakout]
+
     comparable_query = request.args.get('comparable', False)
 
     base_query  = models.ReducedRow.query.filter_by(app_guid=guid)
@@ -286,9 +294,10 @@ def histogram(guid):
     if filtered.get('error', False):
         return jsonify(filtered)
     totals = defaultdict(int)
-    results_agg = defaultdict(Counter)
+    results_agg = defaultdict(lambda: defaultdict(Counter))
     for comp in filtered['results']:
         temp = {}
+        subset = getattr(comp, breakout) if breakout else 'global'
         comp_bins = json.loads(comp.bins)
         temp['byp'] = Counter(comp_bins.get('byp', {}))
         if comparable_query:
@@ -298,19 +307,24 @@ def histogram(guid):
         #else aggregate byp only
 
         for tpclass in temp:
-            results_agg[tpclass] += temp[tpclass]
+            results_agg[subset][tpclass] += temp[tpclass]
 
-    to_return = []
-    for tpclass in results_agg:
-        #grab total
-        total = sum([v for k, v in results_agg[tpclass].iteritems()]) 
-        temp_series = [ {'x': int(bucket), 'y': float(bucket_hits) / total} for bucket, bucket_hits in results_agg[tpclass].iteritems() if bucket != ">4000"]
-        to_return.append({'key': tpclass, 'values': temp_series})
+    to_return = {'total': 0, 'series': []}
+    for breakout_slice in results_agg.keys():
+        temp_slice = {'slice': breakout_slice, 'sub_total': 0}
+        for tpclass in results_agg[breakout_slice]:
+            #grab total
+            #print results_agg[breakout_slice]
+            total = sum([bucket_hits for bucket, bucket_hits in results_agg[breakout_slice][tpclass].iteritems() if bucket != ">4000"]) 
+            to_return['total'] += total
+            temp_slice['sub_total'] += total
+            temp_slice[tpclass] = [{'x': int(bucket), 'y': int(bucket_hits)} for bucket, bucket_hits in results_agg[breakout_slice][tpclass].iteritems() if bucket != ">4000"]
+        to_return['series'].append(temp_slice)
 
     duration = time.time() - starttime
     print duration
 
-    return jsonify({'histograms': to_return})
+    return jsonify(to_return)
 
 @app.route('/api/v1/<guid>/lifecycle/')
 def lifecycle(guid):

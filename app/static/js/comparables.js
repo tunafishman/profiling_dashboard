@@ -1,7 +1,7 @@
-function api_query(app_info, endpoint, args) {
+function api_query(endpoint, args) {
     //if (!(endpoint == 'gains' || endpoint == 'histogram' || endpoint == 'comparables' || endpoint == 'lifecycle' || endpoint == 'values')) { return {} }
 
-    api_url = [window.base_api, app_info.guid, endpoint].join('/')
+    api_url = [window.base_api, args.guid, endpoint].join('/')
     xhr = $.ajax({
         url: api_url,
         type: "get",
@@ -16,20 +16,21 @@ function api_query(app_info, endpoint, args) {
 //}
 
 function makeGains( id, controls) {
-    api_query( {guid: controls.guid}, 'gains', {selector: controls.selector, breakout: controls.breakout}).done(function(data){
+    api_query('gains', controls).done(function(data){
         addBreakout(id, breakout_map(data));
     });
 };
 
 function makePopulation( id, controls) {
-    api_query( {guid: controls.guid}, 'histogram', {selector: controls.selector, comparable: true}).done(function(data){
+    controls['comparable'] = true
+    api_query('histogram', controls).done(function(data){
         var hist = hist_map(data.histograms)
         addHist(id, hist);
     });
 };
 
 function makeBreakout( id, controls) {
-    api_query( {guid: controls.guid}, 'comparables', {selector:controls.selector, breakout:controls.breakout}).done( function(data) {
+    api_query('comparables', controls).done( function(data) {
         addBreakout(id, breakout_map(data));
     });
 }
@@ -351,7 +352,7 @@ var segControls = function(id, app_info) {
             //store them in the `rows` control state variable as a cache
             rowSegment = segments[rows[rowNum].segment].value
             
-            api_query( {cid: customer, guid: app_guid}, 'values', {segment: rowSegment}).done( function(data) {
+            api_query('values', {segment: rowSegment, guid: app_guid}).done( function(data) {
 
                 rows[rowNum].values = formatOptions(data)
                 
