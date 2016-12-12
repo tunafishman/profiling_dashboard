@@ -128,14 +128,14 @@ function histogram(histogram_div, data) {
     console.log('all', all_data, 'to_plot', to_plot);
 
     var slice_offset = 1;
-    var acc_byp_offset = .1;
+    var acc_byp_offset = .3;
 
     data = []
     $.each(to_plot, function(slice_index, item) {
         console.log('hi', item);
         slice_weight = item.sub_total / global_total
         $.each(['acc', 'byp'], function(class_index, tpclass) {
-            console.log(class_index, tpclass, item);
+            console.log('attempting to each', class_index, tpclass, item);
             this_hist = typeof item[tpclass] != 'undefined' ? item[tpclass] : false;
             if (this_hist) {
                 tpclass_total = $.map(item[tpclass], function(pairs, i) {return pairs.y}).reduce(function(pv, cv) {return pv + cv})
@@ -152,7 +152,8 @@ function histogram(histogram_div, data) {
                 z: [],
                 type: 'scatter3d',
                 name: item.slice,
-                mode: 'lines'
+                mode: 'lines',
+                line: { 'width' : 7 }
             }
 
             added_total = 0;
@@ -166,7 +167,6 @@ function histogram(histogram_div, data) {
                 added_total += pair.y;
                 bucket_index += 1;
             }
-            console.log('yo?', temp_trace);
             data.push(temp_trace);
 
         //var details = {x:[], y:[], z:[], type: 'scatter3d'}

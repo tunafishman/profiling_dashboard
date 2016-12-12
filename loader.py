@@ -22,7 +22,7 @@ class VerticaLoader():
         self.SIGNIFICANT_PERCENTILE_ERROR = .15
 
     def dbCidMap(self):
-        bigs = [91, 90, 30, 3524]
+        bigs = [91, 90, 30, 3524, 4110]
         alternates = [3795, 4035, 4094, 4136]
         if self.cid in bigs:
             self.dbname = "SQLEngBig"

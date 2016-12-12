@@ -244,7 +244,12 @@ def gains(guid):
     gain_massage.Start()
     for entry in filtered['results']:
         subset = getattr(entry, breakout) if breakout else 'global'
+        gain = float(entry.gain)
+        if gain > 1:
+            print "Who is this with the huge gain of {}".format(gain), getattr(entry, 'network', 'geo'), getattr(entry, 'content_type'), getattr(entry, 'url_domain'), getattr(entry, 'num_comparable_records'), "comparable out of", getattr(entry, 'num_comparable_records')
         this_boltz = float(entry.gain) * float(entry.num_comparable_records)
+        if gain <0:
+            print "oh snap. negative gain of {}".format(gain), getattr(entry, 'network', 'geo'), getattr(entry, 'content_type'), getattr(entry, 'url_domain'), getattr(entry, 'num_comparable_records'), "comparable out of", getattr(entry, 'num_comparable_records')
 
         temp[subset]['comp_records'] += float(entry.num_comparable_records)
         temp[subset]['total_records'] += float(entry.num_total_records)
@@ -259,7 +264,7 @@ def gains(guid):
     to_return = []
     if total_comp:
         for tpslice in filter(lambda x: x not in ['total_comp_records', 'total_num_records'], temp.keys()):
-            if (temp[tpslice]['comp_records'] and temp[tpslice]['total_records']):
+            if (temp[tpslice]['comp_records'] and temp[tpslice]['total_records']): #divide by 0 guards
                 temp_return = {
                     'label': tpslice,
                     'value': temp[tpslice]['boltzmann_factor'] / temp[tpslice]['comp_records'],
@@ -289,6 +294,8 @@ def histogram(guid):
     comparable_query = request.args.get('comparable', False)
 
     base_query  = models.ReducedRow.query.filter_by(app_guid=guid)
+    if comparable_query:
+        base_query = base_query.filter_by(comparability="True")
     filtered = queryFilter(base_query, selector)
 
     if filtered.get('error', False):
